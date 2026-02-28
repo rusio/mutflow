@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  A Kotlin compiler plugin for lightweight, progressive mutation testing.
+  Mutation testing inside your Kotlin tests. Compile once, catch gaps.
 </p>
 
 <p align="center">
