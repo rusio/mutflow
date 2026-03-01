@@ -42,9 +42,10 @@ Core mutation testing features are working:
 - **Constant boundary mutations** — numeric constants in comparisons are mutated by +1/-1
 - **Boolean return mutations** — boolean return values replaced with `true`/`false`
 - **Nullable return mutations** — nullable return values replaced with `null`
+- **Void function body mutations** — Unit function bodies replaced with empty bodies
 - **Recursive operator nesting** — multiple mutation types apply to the same expression
 
-The extensible mutation operator architecture (`MutationOperator` for calls, `ReturnMutationOperator` for returns) makes it easy to add new mutation types. `@SuppressMutations` annotation allows skipping mutations on specific code. Not yet production-ready, but ready for experimentation.
+The extensible mutation operator architecture (`MutationOperator` for calls, `ReturnMutationOperator` for returns, `WhenMutationOperator` for boolean logic, `FunctionBodyMutationOperator` for function bodies) makes it easy to add new mutation types. `@SuppressMutations` annotation allows skipping mutations on specific code. Not yet production-ready, but ready for experimentation.
 
 ## Setup
 
@@ -290,11 +291,12 @@ Free-form text after the keyword documents the reason for reviewers.
 - **Constant boundary mutations** — Numeric constants in comparisons mutated by +1/-1 (e.g., `0 → 1`, `0 → -1`)
 - **Boolean return mutations** — Boolean return values replaced with `true`/`false` (explicit returns only)
 - **Nullable return mutations** — Nullable return values replaced with `null` (explicit returns only)
+- **Void function body mutations** — Unit function bodies replaced with empty bodies, detecting untested side effects
 - **Recursive operator nesting** — Multiple mutation types combine on the same expression
 - **Type-agnostic** — Works with `Int`, `Long`, `Double`, `Float`, `Short`, `Byte`, `Char`
 - **`@SuppressMutations`** — Skip mutations on specific classes or functions
 - **Comment-based line suppression** — `// mutflow:ignore` and `// mutflow:falsePositive` to skip individual lines (zero production overhead)
-- **Extensible architecture** — `MutationOperator` (for calls), `ReturnMutationOperator` (for returns), and `WhenMutationOperator` (for boolean logic) interfaces for adding new mutation types
+- **Extensible architecture** — `MutationOperator` (for calls), `ReturnMutationOperator` (for returns), `WhenMutationOperator` (for boolean logic), and `FunctionBodyMutationOperator` (for function bodies) interfaces for adding new mutation types
 - **Session-based architecture** — Clean lifecycle, no leaked global state
 - **Parameterless API** — Simple `MutFlow.underTest { }` when using JUnit extension
 - **Runs all mutations by default** — Zero-config: `@MutFlowTest` tests every discovered mutation
@@ -307,6 +309,65 @@ Free-form text after the keyword documents the reason for reviewers.
 - **Target filtering** — `includeTargets`/`excludeTargets` to scope mutations by class in integration tests
 - **Timeout detection** — Mutations that cause infinite loops (e.g., flipping `<` in a loop condition) are automatically detected and reported. Compiler-injected `checkTimeout()` at the top of every loop body ensures even tight loops are caught. Test fails with actionable guidance to add `// mutflow:ignore`
 - **Parallel test safe** — Mutation test classes can run alongside other tests in parallel; `underTest {}` blocks serialize automatically via a synchronized lock, without using `ThreadLocal` (keeping the door open for coroutine/reactive support)
+
+## How Relational Comparison Mutations Work
+
+Relational comparison mutations verify that your tests exercise boundary conditions and direction of comparisons.
+
+**Example:** For `fun isPositive(x: Int) = x > 0`:
+
+| Mutation | Code becomes | Caught by test |
+|----------|--------------|----------------|
+| `> → >=` | `x >= 0` | `isPositive(0)` should be false |
+| `> → <` | `x < 0` | `isPositive(1)` should be true |
+
+Each relational operator produces 2 variants — a boundary mutation (include/exclude equality) and a direction flip:
+
+| Original | Boundary variant | Flip variant |
+|----------|-----------------|--------------|
+| `>` | `>=` | `<` |
+| `>=` | `>` | `<=` |
+| `<` | `<=` | `>` |
+| `<=` | `<` | `>=` |
+
+If your tests only use values far from the boundary (e.g., `isPositive(5)` and `isPositive(-5)`), the boundary variant may survive — revealing the gap.
+
+## How Constant Boundary Mutations Work
+
+The constant boundary mutation detects poorly tested boundaries that operator mutations alone cannot find.
+
+**Example:** For `fun isPositive(x: Int) = x > 0`:
+
+| Mutation | Code becomes | Caught by test |
+|----------|--------------|----------------|
+| `> → >=` | `x >= 0` | `isPositive(0)` should be false |
+| `> → <` | `x < 0` | `isPositive(1)` should be true |
+| `0 → 1` | `x > 1` | `isPositive(1)` should be true |
+| `0 → -1` | `x > -1` | `isPositive(0)` should be false |
+
+If your tests only use values far from the boundary (e.g., `isPositive(5)` and `isPositive(-5)`), the constant mutations will survive — revealing the gap in boundary testing.
+
+## How Arithmetic Mutations Work
+
+Arithmetic mutations verify that your tests detect when math operations are swapped.
+
+**Example:** For `fun total(price: Int, tax: Int) = price + tax`:
+
+| Mutation | Code becomes | Caught by test |
+|----------|--------------|----------------|
+| `+ → -` | `price - tax` | `total(100, 10)` should be `110` |
+
+The full set of arithmetic swaps:
+
+| Original | Mutated to |
+|----------|------------|
+| `+` | `-` |
+| `-` | `+` |
+| `*` | `/` (with safe division) |
+| `/` | `*` |
+| `%` | `/` |
+
+**Safe division:** When mutating `*` to `/`, mutflow guards against division by zero. If the divisor is 0, it computes `divisor / dividend` instead; if both are 0, it returns 1. This prevents `ArithmeticException` from masking the actual mutation test.
 
 ## How Equality Swap Mutations Work
 
@@ -326,20 +387,23 @@ And for `fun isNotZero(x: Int) = x != 0`:
 
 If your tests only exercise values where `==` and `!=` produce different results for obvious inputs, the mutations will be killed. But if tests use ambiguous inputs or don't assert the return value, survivors reveal the gap.
 
-## How Constant Boundary Mutations Work
+## How Boolean Logic Mutations Work
 
-The constant boundary mutation detects poorly tested boundaries that operator mutations alone cannot find.
+Boolean logic mutations verify that your tests distinguish between `&&` (AND) and `||` (OR) conditions.
 
-**Example:** For `fun isPositive(x: Int) = x > 0`:
+**Example:** For `fun isInRange(x: Int) = x >= 0 && x <= 100`:
 
 | Mutation | Code becomes | Caught by test |
 |----------|--------------|----------------|
-| `> → >=` | `x >= 0` | `isPositive(0)` should be false |
-| `> → <` | `x < 0` | `isPositive(1)` should be true |
-| `0 → 1` | `x > 1` | `isPositive(1)` should be true |
-| `0 → -1` | `x > -1` | `isPositive(0)` should be false |
+| `&& → \|\|` | `x >= 0 \|\| x <= 100` | `isInRange(-5)` should be false |
 
-If your tests only use values far from the boundary (e.g., `isPositive(5)` and `isPositive(-5)`), the constant mutations will survive — revealing the gap in boundary testing.
+And for `fun isOutOfRange(x: Int) = x < 0 || x > 100`:
+
+| Mutation | Code becomes | Caught by test |
+|----------|--------------|----------------|
+| `\|\| → &&` | `x < 0 && x > 100` | `isOutOfRange(-5)` should be true |
+
+These mutations catch tests that only exercise the "happy path" where both conditions agree. If `&&` and `||` would produce the same result for all your test inputs, the mutation survives — revealing that your tests don't cover the case where the two conditions disagree.
 
 ## How Boolean Return Mutations Work
 
@@ -398,6 +462,38 @@ assertEquals("Alice", user?.name)  // Catches null mutation
 ```
 
 **Note:** Nullable return mutations only apply to explicit `return` statements in block-bodied functions that return nullable types. The mutation replaces the return value with `null`.
+
+## How Void Function Body Mutations Work
+
+Void function body mutations verify that your tests check side effects, not just that a function can be called without error.
+
+**Example:** For a Unit function with side effects:
+```kotlin
+fun addItem(item: String) {
+    items.add(item)
+    updateCount()
+}
+```
+
+| Mutation | Original | Becomes | Caught when |
+|----------|----------|---------|-------------|
+| empty body | full body | `{ }` | Test asserts `items` contains the added item |
+
+**Common weak test patterns this catches:**
+```kotlin
+// WEAK: Only calls the function, doesn't verify anything
+service.addItem("apple")
+// No assertion!
+
+// WEAK: Only checks that no exception is thrown
+assertDoesNotThrow { service.addItem("apple") }
+
+// STRONG: Verifies the side effect
+service.addItem("apple")
+assertEquals(listOf("apple"), service.getItems())  // Catches empty body mutation
+```
+
+**Note:** Void function body mutations only apply to functions that return Unit, have non-empty bodies, and are not property accessors (getters/setters).
 
 ## Manual API
 
