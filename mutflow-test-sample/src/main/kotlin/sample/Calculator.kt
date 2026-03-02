@@ -131,4 +131,16 @@ class Calculator {
      * At least one condition must be true.
      */
     fun eitherPositive(a: Int, b: Int): Boolean = a > 0 || b > 0
+
+    // --- Boolean inversion for testing ! removal and addition ---
+
+    fun negateBool(value: Boolean): Boolean {
+        return !value
+    }
+
+    fun identityBool(value: Boolean): Boolean = value
+
+    fun checkIdentity(value: Boolean): Boolean {
+        return identityBool(value)
+    }
 }

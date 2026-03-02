@@ -494,6 +494,8 @@ When a timeout occurs, the test **fails** rather than silently marking the mutat
 │                           │    handles +, -, *, /, % operators  │
 │                           │  EqualitySwapOperator:              │
 │                           │    handles == ↔ != swaps            │
+│                           │  BooleanInversionOperator:          │
+│                           │    handles !expr ↔ expr inversions  │
 │                           │  BooleanLogicOperator:              │
 │                           │    handles && ↔ || swaps            │
 │                           │  BooleanReturnOperator:             │
@@ -773,6 +775,11 @@ Code only reached outside `MutFlow.underTest { }` blocks produces no mutations. 
   - In K2 IR, `==` is a single EQEQ intrinsic; `!=` is `not(EQEQ(a, b))` — two calls both with EXCLEQ origin
   - Matches EQEQ calls with EQEQ origin for `==`, and `not()` calls with EXCLEQ origin for `!=`
   - Avoids double-matching the inner EQEQ of `!=` expressions (which would create spurious mutation points)
+- `BooleanInversionOperator` inverts boolean expressions
+  - `!expr` → `expr` (1 variant: unwraps `Boolean.not()`)
+  - `expr` → `!expr` (1 variant: wraps boolean-returning calls with `Boolean.not()`)
+  - Case A matches `not()` calls excluding `!=` (EXCLEQ origin, handled by EqualitySwapOperator)
+  - Case B matches boolean-returning calls with null origin (leaf function calls not covered by other operators)
 - `BooleanLogicOperator` swaps boolean logic operators
   - `&&` → `||` (1 variant: swaps branch results to short-circuit true)
   - `||` → `&&` (1 variant: swaps branch results to short-circuit false)

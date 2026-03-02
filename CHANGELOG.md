@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.0] - 2026-03-02
+### Added
+- Boolean inversion mutation operator (`!expr` → `expr`, `expr` → `!expr`)
+  - Removes `!` from any negated boolean expression
+  - Adds `!` to plain boolean function calls (not comparisons or logic operators, which are already covered by other mutations)
+
 ## [0.6.0] - 2026-02-27
 ### Changed
 - All mutation points are now tested by default (`maxRuns` defaults to all instead of 5)

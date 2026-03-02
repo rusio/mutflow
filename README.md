@@ -38,6 +38,7 @@ Core mutation testing features are working:
 - **Relational comparisons** (`>`, `<`, `>=`, `<=`) with 2 variants each (boundary + flip)
 - **Equality swaps** (`==` ↔ `!=`) — detects missing equality/inequality assertions
 - **Boolean logic swaps** (`&&` ↔ `||`) — detects missing short-circuit logic assertions
+- **Boolean inversion** (`!expr` ↔ `expr`) — detects missing negation assertions on plain boolean values
 - **Arithmetic operators** (`+`, `-`, `*`, `/`, `%`) — simple swaps to detect wrong operations
 - **Constant boundary mutations** — numeric constants in comparisons are mutated by +1/-1
 - **Boolean return mutations** — boolean return values replaced with `true`/`false`
@@ -287,6 +288,7 @@ Free-form text after the keyword documents the reason for reviewers.
 - **All relational comparisons** — `>`, `<`, `>=`, `<=` with 2 variants each (boundary + flip)
 - **Equality swaps** — `==` ↔ `!=` (1 variant each)
 - **Boolean logic swaps** — `&&` ↔ `||` (1 variant each)
+- **Boolean inversion** — `!expr` → `expr` and `expr` → `!expr` for plain boolean values (1 variant each)
 - **Arithmetic operators** — `+` ↔ `-`, `*` ↔ `/`, `%` → `/` (with safe division to avoid div-by-zero)
 - **Constant boundary mutations** — Numeric constants in comparisons mutated by +1/-1 (e.g., `0 → 1`, `0 → -1`)
 - **Boolean return mutations** — Boolean return values replaced with `true`/`false` (explicit returns only)
@@ -404,6 +406,36 @@ And for `fun isOutOfRange(x: Int) = x < 0 || x > 100`:
 | `\|\| → &&` | `x < 0 && x > 100` | `isOutOfRange(-5)` should be true |
 
 These mutations catch tests that only exercise the "happy path" where both conditions agree. If `&&` and `||` would produce the same result for all your test inputs, the mutation survives — revealing that your tests don't cover the case where the two conditions disagree.
+
+## How Boolean Inversion Mutations Work
+
+Boolean inversion mutations verify that your tests detect when a negation is removed or added.
+
+**Removing negation (`!expr` → `expr`):** Any `!` expression (excluding `!=`, which is handled by equality swap mutations) is mutated by removing the negation.
+
+```kotlin
+fun isDisabled(flag: Boolean): Boolean {
+    return !flag
+}
+```
+
+| Mutation | Code becomes | Caught by test |
+|----------|--------------|----------------|
+| `! → removed` | `return flag` | `isDisabled(true)` should be false |
+
+**Adding negation (`expr` → `!expr`):** Plain boolean function calls (not comparisons like `x > y` or operators like `&&`, which are already covered by other mutations) are mutated by wrapping them in `!`.
+
+```kotlin
+fun isActive(user: User): Boolean {
+    return user.isEnabled()
+}
+```
+
+| Mutation | Code becomes | Caught by test |
+|----------|--------------|----------------|
+| `isEnabled() → !isEnabled()` | `return !user.isEnabled()` | `isActive(enabledUser)` should be true |
+
+These mutations catch tests that don't verify the polarity of boolean results. If your test calls a function but doesn't assert the actual boolean value, the inversion mutation will survive.
 
 ## How Boolean Return Mutations Work
 

@@ -60,7 +60,8 @@ class MutflowIrTransformer(
             RelationalComparisonOperator(),
             ConstantBoundaryOperator(),
             ArithmeticOperator(),
-            EqualitySwapOperator()
+            EqualitySwapOperator(),
+            BooleanInversionOperator()
         )
 
         fun defaultReturnOperators(): List<ReturnMutationOperator> = listOf(

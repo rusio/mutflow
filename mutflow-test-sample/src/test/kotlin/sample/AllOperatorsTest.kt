@@ -430,4 +430,70 @@ class AllOperatorsTest {
         }
         assertFalse(mutant1, "With == mutation, isNotZero(5) should be false")
     }
+
+    // ==================== Boolean inversion (! removal and addition) ====================
+
+    @Test
+    fun `boolean negation removal generates mutation`() {
+        // negateBool uses !value
+        // BooleanInversionOperator Case A should discover at least 1 mutation point
+
+        MutFlow.underTest(run = 0, selection = Selection.MostLikelyStable, shuffle = Shuffle.PerChange) {
+            calculator.negateBool(true)
+        }
+
+        val state = MutFlow.getRegistryState()
+        val points = state.discoveredPoints.entries.filter { it.key.contains("Calculator") }
+        assertTrue(points.isNotEmpty(), "Should discover mutation points for negateBool")
+    }
+
+    @Test
+    fun `boolean negation removal changes behavior correctly`() {
+        // Original: !value — negateBool(true) returns false
+        // Variant (remove !): value — negateBool(true) returns true
+
+        // Baseline
+        val baseline = MutFlow.underTest(run = 0, selection = Selection.MostLikelyStable, shuffle = Shuffle.PerChange) {
+            calculator.negateBool(true)
+        }
+        assertFalse(baseline, "negateBool(true) should be false")
+
+        // First mutation (! removal): negateBool(true) returns true
+        val mutant = MutFlow.underTest(run = 1, selection = Selection.MostLikelyStable, shuffle = Shuffle.PerChange) {
+            calculator.negateBool(true)
+        }
+        assertTrue(mutant, "With ! removed, negateBool(true) should be true")
+    }
+
+    @Test
+    fun `boolean addition generates mutation`() {
+        // checkIdentity uses identityBool(value) — a leaf boolean call
+        // BooleanInversionOperator Case B should discover at least 1 mutation point
+
+        MutFlow.underTest(run = 0, selection = Selection.MostLikelyStable, shuffle = Shuffle.PerChange) {
+            calculator.checkIdentity(true)
+        }
+
+        val state = MutFlow.getRegistryState()
+        val points = state.discoveredPoints.entries.filter { it.key.contains("Calculator") }
+        assertTrue(points.isNotEmpty(), "Should discover mutation points for checkIdentity")
+    }
+
+    @Test
+    fun `boolean addition changes behavior correctly`() {
+        // Original: identityBool(value) — checkIdentity(true) returns true
+        // Variant (add !): !identityBool(true) returns false
+
+        // Baseline
+        val baseline = MutFlow.underTest(run = 0, selection = Selection.MostLikelyStable, shuffle = Shuffle.PerChange) {
+            calculator.checkIdentity(true)
+        }
+        assertTrue(baseline, "checkIdentity(true) should be true")
+
+        // First mutation (! addition): checkIdentity(true) returns false
+        val mutant = MutFlow.underTest(run = 1, selection = Selection.MostLikelyStable, shuffle = Shuffle.PerChange) {
+            calculator.checkIdentity(true)
+        }
+        assertFalse(mutant, "With ! added, checkIdentity(true) should be false")
+    }
 }
