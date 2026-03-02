@@ -32,21 +32,7 @@ mutflow closes the gap between code coverage and assertion quality. Coverage tel
 
 **Important:** mutflow only tests code reached within `MutFlow.underTest { }` blocks. Unreached code produces no mutations - mutflow won't warn you. This is intentional (keeps scope focused) but means you should use coverage tools separately to ensure code is exercised at all.
 
-## Status
-
-Core mutation testing features are working:
-- **Relational comparisons** (`>`, `<`, `>=`, `<=`) with 2 variants each (boundary + flip)
-- **Equality swaps** (`==` ↔ `!=`) — detects missing equality/inequality assertions
-- **Boolean logic swaps** (`&&` ↔ `||`) — detects missing short-circuit logic assertions
-- **Boolean inversion** (`!expr` ↔ `expr`) — detects missing negation assertions on plain boolean values
-- **Arithmetic operators** (`+`, `-`, `*`, `/`, `%`) — simple swaps to detect wrong operations
-- **Constant boundary mutations** — numeric constants in comparisons are mutated by +1/-1
-- **Boolean return mutations** — boolean return values replaced with `true`/`false`
-- **Nullable return mutations** — nullable return values replaced with `null`
-- **Void function body mutations** — Unit function bodies replaced with empty bodies
-- **Recursive operator nesting** — multiple mutation types apply to the same expression
-
-The extensible mutation operator architecture (`MutationOperator` for calls, `ReturnMutationOperator` for returns, `WhenMutationOperator` for boolean logic, `FunctionBodyMutationOperator` for function bodies) makes it easy to add new mutation types. `@SuppressMutations` annotation allows skipping mutations on specific code. Not yet production-ready, but ready for experimentation.
+A carefully [selected set of mutation operators](#mutation-operators) is built in, with an extensible architecture for adding new ones. See [features](#features) for the full list of capabilities.
 
 ## Setup
 
@@ -281,36 +267,48 @@ Free-form text after the keyword documents the reason for reviewers.
 
 **Inline comment** suppresses mutations on the same line. **Standalone comment** (on its own line) suppresses mutations on the next line. Comments have zero production overhead — they are stripped by the compiler and nothing appears in the production bytecode.
 
-## Current Features
+## Mutation Operators
 
-- **JUnit 6 integration** — `@MutFlowTest` annotation for automatic multi-run orchestration
-- **K2 compiler plugin** — Transforms `@MutationTarget` classes with multiple mutation types
-- **All relational comparisons** — `>`, `<`, `>=`, `<=` with 2 variants each (boundary + flip)
-- **Equality swaps** — `==` ↔ `!=` (1 variant each)
-- **Boolean logic swaps** — `&&` ↔ `||` (1 variant each)
-- **Boolean inversion** — `!expr` → `expr` and `expr` → `!expr` for plain boolean values (1 variant each)
-- **Arithmetic operators** — `+` ↔ `-`, `*` ↔ `/`, `%` → `/` (with safe division to avoid div-by-zero)
-- **Constant boundary mutations** — Numeric constants in comparisons mutated by +1/-1 (e.g., `0 → 1`, `0 → -1`)
-- **Boolean return mutations** — Boolean return values replaced with `true`/`false` (explicit returns only)
-- **Nullable return mutations** — Nullable return values replaced with `null` (explicit returns only)
-- **Void function body mutations** — Unit function bodies replaced with empty bodies, detecting untested side effects
+- [**Relational comparisons**](#how-relational-comparison-mutations-work) — `>`, `<`, `>=`, `<=` with 2 variants each (boundary + flip)
+- [**Constant boundary**](#how-constant-boundary-mutations-work) — Numeric constants in comparisons mutated by +1/-1 (e.g., `0 → 1`, `0 → -1`)
+- [**Arithmetic**](#how-arithmetic-mutations-work) — `+` ↔ `-`, `*` ↔ `/`, `%` → `/` (with safe division to avoid div-by-zero)
+- [**Equality swaps**](#how-equality-swap-mutations-work) — `==` ↔ `!=` (1 variant each)
+- [**Boolean logic swaps**](#how-boolean-logic-mutations-work) — `&&` ↔ `||` (1 variant each)
+- [**Boolean inversion**](#how-boolean-inversion-mutations-work) — `!expr` → `expr` and `expr` → `!expr` for plain boolean values (1 variant each)
+- [**Boolean return**](#how-boolean-return-mutations-work) — Boolean return values replaced with `true`/`false` (explicit returns only)
+- [**Nullable return**](#how-nullable-return-mutations-work) — Nullable return values replaced with `null` (explicit returns only)
+- [**Void function body**](#how-void-function-body-mutations-work) — Unit function bodies replaced with empty bodies, detecting untested side effects
 - **Recursive operator nesting** — Multiple mutation types combine on the same expression
 - **Type-agnostic** — Works with `Int`, `Long`, `Double`, `Float`, `Short`, `Byte`, `Char`
-- **`@SuppressMutations`** — Skip mutations on specific classes or functions
-- **Comment-based line suppression** — `// mutflow:ignore` and `// mutflow:falsePositive` to skip individual lines (zero production overhead)
-- **Extensible architecture** — `MutationOperator` (for calls), `ReturnMutationOperator` (for returns), `WhenMutationOperator` (for boolean logic), and `FunctionBodyMutationOperator` (for function bodies) interfaces for adding new mutation types
-- **Session-based architecture** — Clean lifecycle, no leaked global state
+
+## Features
+
+**Core**
+- **JUnit 6 integration** — `@MutFlowTest` annotation for automatic multi-run orchestration
+- **K2 compiler plugin** — Transforms `@MutationTarget` classes with multiple mutation types
 - **Parameterless API** — Simple `MutFlow.underTest { }` when using JUnit extension
 - **Runs all mutations by default** — Zero-config: `@MutFlowTest` tests every discovered mutation
-- **Mutation result tracking** — Killed mutations show as PASSED (exception swallowed), survivors fail the build
+
+**Reporting**
 - **Summary reporting** — Visual summary at end of test class showing killed/survived mutations
 - **Readable mutation names** — Source location and operator descriptions (e.g., `(Calculator.kt:7) > → >=`, `(Calculator.kt:7) 0 → 1`). When the same operator appears multiple times on one line, an occurrence suffix disambiguates (e.g., `> → >= #2`)
 - **IDE-clickable links** — Source locations in IntelliJ-compatible format for quick navigation
-- **Partial run detection** — Automatically skips mutation testing when running single tests from IDE (prevents false positives)
-- **Trap mechanism** — Pin specific mutations to run first while debugging test gaps
+- **Mutation result tracking** — Killed mutations show as PASSED (exception swallowed), survivors fail the build
+
+**Control**
+- **`@SuppressMutations`** — Skip mutations on specific classes or functions
+- **Comment-based line suppression** — `// mutflow:ignore` and `// mutflow:falsePositive` to skip individual lines (zero production overhead)
 - **Target filtering** — `includeTargets`/`excludeTargets` to scope mutations by class in integration tests
+- **Trap mechanism** — Pin specific mutations to run first while debugging test gaps
+
+**Robustness**
 - **Timeout detection** — Mutations that cause infinite loops (e.g., flipping `<` in a loop condition) are automatically detected and reported. Compiler-injected `checkTimeout()` at the top of every loop body ensures even tight loops are caught. Test fails with actionable guidance to add `// mutflow:ignore`
+- **Partial run detection** — Automatically skips mutation testing when running single tests from IDE (prevents false positives)
 - **Parallel test safe** — Mutation test classes can run alongside other tests in parallel; `underTest {}` blocks serialize automatically via a synchronized lock, without using `ThreadLocal` (keeping the door open for coroutine/reactive support)
+- **Session-based architecture** — Clean lifecycle, no leaked global state
+
+**Extensibility**
+- **Extensible architecture** — `MutationOperator` (for calls), `ReturnMutationOperator` (for returns), `WhenMutationOperator` (for boolean logic), and `FunctionBodyMutationOperator` (for function bodies) interfaces for adding new mutation types
 
 ## How Relational Comparison Mutations Work
 
@@ -549,6 +547,5 @@ Selection strategies (`PureRandom`, `MostLikelyRandom`, `MostLikelyStable`) and 
 
 See [DESIGN.md](DESIGN.md) for the full design document, architecture details, and implementation plan.
 
-## Acknowledgments
-
-This project was developed with the assistance of AI coding assistants (Claude).
+---
+Co-developed with an AI assistant.
