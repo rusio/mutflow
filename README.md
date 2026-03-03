@@ -274,7 +274,7 @@ Free-form text after the keyword documents the reason for reviewers.
 - [**Arithmetic**](#how-arithmetic-mutations-work) — `+` ↔ `-`, `*` ↔ `/`, `%` → `/` (with safe division to avoid div-by-zero)
 - [**Equality swaps**](#how-equality-swap-mutations-work) — `==` ↔ `!=` (1 variant each)
 - [**Boolean logic swaps**](#how-boolean-logic-mutations-work) — `&&` ↔ `||` (1 variant each)
-- [**Boolean inversion**](#how-boolean-inversion-mutations-work) — `!expr` → `expr` and `expr` → `!expr` for plain boolean values (1 variant each)
+- [**Boolean inversion**](#how-boolean-inversion-mutations-work) — `expr` → `!expr` for boolean function calls, property accesses, and variables/parameters (1 variant each)
 - [**Boolean return**](#how-boolean-return-mutations-work) — Boolean return values replaced with `true`/`false` (explicit returns only)
 - [**Nullable return**](#how-nullable-return-mutations-work) — Nullable return values replaced with `null` (explicit returns only)
 - [**Void function body**](#how-void-function-body-mutations-work) — Unit function bodies replaced with empty bodies, detecting untested side effects
@@ -407,21 +407,9 @@ These mutations catch tests that only exercise the "happy path" where both condi
 
 ## How Boolean Inversion Mutations Work
 
-Boolean inversion mutations verify that your tests detect when a negation is removed or added.
+Boolean inversion mutations verify that your tests detect when a boolean value is flipped. Every boolean expression — function calls, property accesses, and variable/parameter reads — is mutated by wrapping it in `!`.
 
-**Removing negation (`!expr` → `expr`):** Any `!` expression (excluding `!=`, which is handled by equality swap mutations) is mutated by removing the negation.
-
-```kotlin
-fun isDisabled(flag: Boolean): Boolean {
-    return !flag
-}
-```
-
-| Mutation | Code becomes | Caught by test |
-|----------|--------------|----------------|
-| `! → removed` | `return flag` | `isDisabled(true)` should be false |
-
-**Adding negation (`expr` → `!expr`):** Plain boolean function calls (not comparisons like `x > y` or operators like `&&`, which are already covered by other mutations) are mutated by wrapping them in `!`.
+**Function calls and property accesses (`expr()` → `!expr()`):**
 
 ```kotlin
 fun isActive(user: User): Boolean {
@@ -432,6 +420,21 @@ fun isActive(user: User): Boolean {
 | Mutation | Code becomes | Caught by test |
 |----------|--------------|----------------|
 | `isEnabled() → !isEnabled()` | `return !user.isEnabled()` | `isActive(enabledUser)` should be true |
+
+**Boolean variables and parameters (`varName` → `!varName`):**
+
+```kotlin
+fun inheritedSelection(invertSelection: Boolean, parentSelected: Boolean): Boolean {
+    return if (invertSelection) !parentSelected else parentSelected
+}
+```
+
+| Mutation | Code becomes | Caught by test |
+|----------|--------------|----------------|
+| `invertSelection → !invertSelection` | `if (!invertSelection)` | Test with `invertSelection=true` should invert |
+| `parentSelected → !parentSelected` | `!(!parentSelected)` / `!parentSelected` | Test should verify both branches |
+
+**Negation removal is implicit:** There is no separate "remove `!`" mutation. Adding `!` to the inner expression of `!expr` produces `!(!expr)`, which evaluates to `expr` — achieving the same effect. This simplification covers all boolean types uniformly without special-casing negation.
 
 These mutations catch tests that don't verify the polarity of boolean results. If your test calls a function but doesn't assert the actual boolean value, the inversion mutation will survive.
 

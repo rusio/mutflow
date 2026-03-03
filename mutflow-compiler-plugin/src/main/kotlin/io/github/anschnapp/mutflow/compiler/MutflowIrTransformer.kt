@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.expressions.IrBlockBody
 import org.jetbrains.kotlin.ir.expressions.*
+import org.jetbrains.kotlin.ir.types.isBoolean
 import org.jetbrains.kotlin.ir.expressions.impl.IrBlockImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrBranchImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrElseBranchImpl
@@ -210,6 +211,82 @@ class MutflowIrTransformer(
 
         val fn = currentFunction ?: return transformed
         return transformCallWithOperators(transformed, fn, callOperators)
+    }
+
+    override fun visitGetValue(expression: IrGetValue): IrExpression {
+        val transformed = super.visitGetValue(expression) as IrGetValue
+
+        if (!isInMutationTarget || isInSuppressedScope) return transformed
+        if (!transformed.type.isBoolean()) return transformed
+        if (isLineSuppressedByComment(transformed.startOffset)) return transformed
+
+        val fn = currentFunction ?: return transformed
+        return transformBooleanGetValue(transformed, fn)
+    }
+
+    /**
+     * Transforms a boolean IrGetValue (variable/parameter read) into a mutation point.
+     *
+     * Generates:
+     * ```
+     * when {
+     *     MutationRegistry.check(...) == 0 -> !varName
+     *     else -> varName
+     * }
+     * ```
+     *
+     * IrGetValue is a leaf node so no recursion is needed.
+     */
+    private fun transformBooleanGetValue(
+        original: IrGetValue,
+        containingFunction: IrSimpleFunction
+    ): IrExpression {
+        val checkFn = checkFunction ?: return original
+        val registryClass = mutationRegistryClass ?: return original
+
+        val builder = DeclarationIrBuilder(pluginContext, containingFunction.symbol)
+
+        val varName = original.symbol.owner.name.asString()
+        val pointId = generatePointId()
+        val sourceLocation = getSourceLocation(original)
+        val lineNumber = currentFile?.fileEntry?.getLineNumber(original.startOffset)?.plus(1) ?: 0
+        val occurrenceOnLine = nextOccurrenceOnLine(lineNumber, varName)
+
+        debug("MUTATION: $varName at $sourceLocation (occurrence #$occurrenceOnLine) -> variants: !$varName")
+
+        fun createCheckCall() = builder.irCall(checkFn).also { call ->
+            call.arguments[0] = builder.irGetObject(registryClass)
+            call.arguments[1] = builder.irString(pointId)
+            call.arguments[2] = builder.irInt(1) // single variant
+            call.arguments[3] = builder.irString(sourceLocation)
+            call.arguments[4] = builder.irString(varName)
+            call.arguments[5] = builder.irString("!$varName")
+            call.arguments[6] = builder.irInt(occurrenceOnLine)
+        }
+
+        val booleanNotSymbol = pluginContext.irBuiltIns.booleanNotSymbol
+
+        return IrWhenImpl(
+            startOffset = original.startOffset,
+            endOffset = original.endOffset,
+            type = pluginContext.irBuiltIns.booleanType,
+            origin = null
+        ).apply {
+            branches += IrBranchImpl(
+                startOffset = original.startOffset,
+                endOffset = original.endOffset,
+                condition = builder.irEquals(createCheckCall(), builder.irInt(0)),
+                result = builder.irCall(booleanNotSymbol).also {
+                    it.dispatchReceiver = original.deepCopyWithSymbols()
+                }
+            )
+            branches += IrElseBranchImpl(
+                startOffset = original.startOffset,
+                endOffset = original.endOffset,
+                condition = builder.irTrue(),
+                result = original
+            )
+        }
     }
 
     override fun visitReturn(expression: IrReturn): IrExpression {

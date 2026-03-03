@@ -495,7 +495,7 @@ When a timeout occurs, the test **fails** rather than silently marking the mutat
 │                           │  EqualitySwapOperator:              │
 │                           │    handles == ↔ != swaps            │
 │                           │  BooleanInversionOperator:          │
-│                           │    handles !expr ↔ expr inversions  │
+│                           │    adds ! to boolean calls/props    │
 │                           │  BooleanLogicOperator:              │
 │                           │    handles && ↔ || swaps            │
 │                           │  BooleanReturnOperator:             │
@@ -775,11 +775,14 @@ Code only reached outside `MutFlow.underTest { }` blocks produces no mutations. 
   - In K2 IR, `==` is a single EQEQ intrinsic; `!=` is `not(EQEQ(a, b))` — two calls both with EXCLEQ origin
   - Matches EQEQ calls with EQEQ origin for `==`, and `not()` calls with EXCLEQ origin for `!=`
   - Avoids double-matching the inner EQEQ of `!=` expressions (which would create spurious mutation points)
-- `BooleanInversionOperator` inverts boolean expressions
-  - `!expr` → `expr` (1 variant: unwraps `Boolean.not()`)
-  - `expr` → `!expr` (1 variant: wraps boolean-returning calls with `Boolean.not()`)
-  - Case A matches `not()` calls excluding `!=` (EXCLEQ origin, handled by EqualitySwapOperator)
-  - Case B matches boolean-returning calls with null origin (leaf function calls not covered by other operators)
+- `BooleanInversionOperator` adds negation to boolean expressions
+  - `expr` → `!expr` (1 variant: wraps in `Boolean.not()`)
+  - Matches boolean-returning `IrCall` nodes with null or `GET_PROPERTY` origin (function calls and property accesses)
+  - Excludes `not()` calls (would create redundant double-negation points) and EXCLEQ origin (handled by EqualitySwapOperator)
+  - The "remove negation" case (`!expr` → `expr`) is implicitly covered: adding `!` to the inner expression of `!expr` produces `!(!expr)` = `expr`
+- Boolean variable/parameter inversion is handled directly by `MutflowIrTransformer.visitGetValue`
+  - `varName` → `!varName` (1 variant: wraps boolean `IrGetValue` in `Boolean.not()`)
+  - Not an operator interface — `IrGetValue` is a leaf node, handled inline with a single mutation point
 - `BooleanLogicOperator` swaps boolean logic operators
   - `&&` → `||` (1 variant: swaps branch results to short-circuit true)
   - `||` → `&&` (1 variant: swaps branch results to short-circuit false)

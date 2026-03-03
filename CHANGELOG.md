@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0] - 2026-03-03
+### Changed
+- Boolean inversion operator simplified — always adds `!` instead of two cases (remove/add). The "remove negation" case is implicit: `!(!expr)` = `expr`
+- Boolean inversion now matches property accesses in addition to plain function calls
+### Added
+- Boolean variable/parameter inversion — boolean variables and parameters are now mutated (`varName → !varName`)
+
 ## [0.7.0] - 2026-03-02
 ### Added
 - Boolean inversion mutation operator (`!expr` → `expr`, `expr` → `!expr`)

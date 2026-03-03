@@ -82,11 +82,13 @@ class CommentSuppressionTest {
         // - b > 0: Constant boundary on 0 (2 variants: 1, -1)
         // - return first && second: Boolean return (2 variants: true, false)
         // - first && second: Boolean logic (1 variant: ||)
-        // Total: 7 mutations from 4 mutation points
+        // - first: Boolean inversion (1 variant: !first)
+        // - second: Boolean inversion (1 variant: !second)
+        // Total: 9 mutations from 6 mutation points
         // The suppressed line (a > 0) should NOT contribute any mutation points
         assertEquals(
-            4, state.discoveredPoints.size,
-            "Should discover 4 mutation points for non-suppressed lines only, but found: ${state.discoveredPoints}"
+            6, state.discoveredPoints.size,
+            "Should discover 6 mutation points for non-suppressed lines only, but found: ${state.discoveredPoints}"
         )
     }
 }
