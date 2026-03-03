@@ -431,12 +431,14 @@ class AllOperatorsTest {
         assertFalse(mutant1, "With == mutation, isNotZero(5) should be false")
     }
 
-    // ==================== Boolean inversion (! removal and addition) ====================
+    // ==================== Boolean inversion ====================
+    // BooleanInversionOperator always adds ! to boolean expressions.
+    // The "remove !" case is implicit: adding ! to the inner expr of !expr produces !(!expr) = expr.
 
     @Test
     fun `boolean negation removal generates mutation`() {
-        // negateBool uses !value
-        // BooleanInversionOperator Case A should discover at least 1 mutation point
+        // negateBool uses !value — the `value` IrGetValue gets a value → !value mutation,
+        // which turns !value into !(!value) = value (implicit negation removal)
 
         MutFlow.underTest(run = 0, selection = Selection.MostLikelyStable, shuffle = Shuffle.PerChange) {
             calculator.negateBool(true)
@@ -450,7 +452,7 @@ class AllOperatorsTest {
     @Test
     fun `boolean negation removal changes behavior correctly`() {
         // Original: !value — negateBool(true) returns false
-        // Variant (remove !): value — negateBool(true) returns true
+        // Mutation on `value` (value → !value): !(!true) = true
 
         // Baseline
         val baseline = MutFlow.underTest(run = 0, selection = Selection.MostLikelyStable, shuffle = Shuffle.PerChange) {
@@ -458,17 +460,17 @@ class AllOperatorsTest {
         }
         assertFalse(baseline, "negateBool(true) should be false")
 
-        // First mutation (! removal): negateBool(true) returns true
+        // First mutation: value → !value inside !value, so !(!true) = true
         val mutant = MutFlow.underTest(run = 1, selection = Selection.MostLikelyStable, shuffle = Shuffle.PerChange) {
             calculator.negateBool(true)
         }
-        assertTrue(mutant, "With ! removed, negateBool(true) should be true")
+        assertTrue(mutant, "With value inverted, negateBool(true) should be true")
     }
 
     @Test
     fun `boolean addition generates mutation`() {
-        // checkIdentity uses identityBool(value) — a leaf boolean call
-        // BooleanInversionOperator Case B should discover at least 1 mutation point
+        // checkIdentity uses identityBool(value) — a boolean-returning call
+        // BooleanInversionOperator wraps it in !identityBool(value)
 
         MutFlow.underTest(run = 0, selection = Selection.MostLikelyStable, shuffle = Shuffle.PerChange) {
             calculator.checkIdentity(true)
@@ -482,7 +484,7 @@ class AllOperatorsTest {
     @Test
     fun `boolean addition changes behavior correctly`() {
         // Original: identityBool(value) — checkIdentity(true) returns true
-        // Variant (add !): !identityBool(true) returns false
+        // Mutation: !identityBool(true) returns false
 
         // Baseline
         val baseline = MutFlow.underTest(run = 0, selection = Selection.MostLikelyStable, shuffle = Shuffle.PerChange) {
@@ -495,5 +497,39 @@ class AllOperatorsTest {
             calculator.checkIdentity(true)
         }
         assertFalse(mutant, "With ! added, checkIdentity(true) should be false")
+    }
+
+    // ==================== Boolean variable inversion (IrGetValue) ====================
+
+    @Test
+    fun `boolean variable inversion generates mutation`() {
+        // passThroughBool(flag) returns flag directly — an IrGetValue leaf node
+        // visitGetValue creates a flag → !flag mutation point
+
+        MutFlow.underTest(run = 0, selection = Selection.MostLikelyStable, shuffle = Shuffle.PerChange) {
+            calculator.passThroughBool(true)
+        }
+
+        val state = MutFlow.getRegistryState()
+        val points = state.discoveredPoints.entries.filter { it.key.contains("Calculator") }
+        assertTrue(points.isNotEmpty(), "Should discover mutation points for passThroughBool")
+    }
+
+    @Test
+    fun `boolean variable inversion changes behavior correctly`() {
+        // Original: return flag — passThroughBool(true) returns true
+        // Mutation: return !flag — passThroughBool(true) returns false
+
+        // Baseline
+        val baseline = MutFlow.underTest(run = 0, selection = Selection.MostLikelyStable, shuffle = Shuffle.PerChange) {
+            calculator.passThroughBool(true)
+        }
+        assertTrue(baseline, "passThroughBool(true) should be true")
+
+        // First mutation (flag → !flag): passThroughBool(true) returns false
+        val mutant = MutFlow.underTest(run = 1, selection = Selection.MostLikelyStable, shuffle = Shuffle.PerChange) {
+            calculator.passThroughBool(true)
+        }
+        assertFalse(mutant, "With flag inverted, passThroughBool(true) should be false")
     }
 }

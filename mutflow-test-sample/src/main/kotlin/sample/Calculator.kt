@@ -132,7 +132,7 @@ class Calculator {
      */
     fun eitherPositive(a: Int, b: Int): Boolean = a > 0 || b > 0
 
-    // --- Boolean inversion for testing ! removal and addition ---
+    // --- Boolean inversion ---
 
     fun negateBool(value: Boolean): Boolean {
         return !value
@@ -142,5 +142,9 @@ class Calculator {
 
     fun checkIdentity(value: Boolean): Boolean {
         return identityBool(value)
+    }
+
+    fun passThroughBool(flag: Boolean): Boolean {
+        return flag
     }
 }
