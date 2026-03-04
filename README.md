@@ -107,7 +107,9 @@ class CalculatorTest {
 }
 ```
 
-That's it! The `@MutFlowTest` annotation handles everything:
+That's it! For a more detailed walkthrough, check out this [blog post on dev.to](https://dev.to/5n4p_/i-built-a-single-compile-mutation-testing-lib-for-kotlin-which-runs-inside-your-normal-test-suite-4253).
+
+The `@MutFlowTest` annotation handles everything:
 - **Baseline run**: Discovers mutation points, all tests pass normally
 - **Mutation runs**: Each mutation is activated across all tests; if any test catches it (assertion fails), the mutation is killed and tests appear green
 - **Survivor detection**: If no test catches a mutation, `MutantSurvivedException` is thrown and the build fails
