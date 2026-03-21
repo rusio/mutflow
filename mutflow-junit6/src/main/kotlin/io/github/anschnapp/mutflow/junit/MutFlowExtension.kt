@@ -93,7 +93,7 @@ class MutFlowExtension : ClassTemplateInvocationContextProvider {
         return object : ClassTemplateInvocationContext {
             override fun getDisplayName(invocationIndex: Int): String {
                 return when {
-                    run == 0 -> "Test run (no mutations)"
+                    run == 0 -> "Run without mutations"
                     mutation != null -> {
                         val session = MutFlow.getSession(sessionId)
                         val displayName = session?.getDisplayName(mutation)

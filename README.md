@@ -110,17 +110,17 @@ class CalculatorTest {
 That's it! For a more detailed walkthrough, check out this [blog post on dev.to](https://dev.to/5n4p_/i-built-a-single-compile-mutation-testing-lib-for-kotlin-which-runs-inside-your-normal-test-suite-4253).
 
 The `@MutFlowTest` annotation handles everything:
-- **Test run (no mutations)**: Discovers mutation points, all tests pass normally
+- **Run without mutations**: Discovers mutation points, all tests pass normally
 - **Mutation runs**: Each mutation is activated across all tests; if any test catches it (assertion fails), the mutation is killed and tests appear green
 - **Survivor detection**: If no test catches a mutation, `MutantSurvivedException` is thrown and the build fails
 
 ### Example Output
 
 ```
-CalculatorTest > Test run (no mutations) > isPositive returns true for positive numbers() PASSED
-CalculatorTest > Test run (no mutations) > isPositive returns true at boundary() PASSED
-CalculatorTest > Test run (no mutations) > isPositive returns false for negative numbers() PASSED
-CalculatorTest > Test run (no mutations) > isPositive returns false for zero() PASSED
+CalculatorTest > Run without mutations > isPositive returns true for positive numbers() PASSED
+CalculatorTest > Run without mutations > isPositive returns true at boundary() PASSED
+CalculatorTest > Run without mutations > isPositive returns false for negative numbers() PASSED
+CalculatorTest > Run without mutations > isPositive returns false for zero() PASSED
 
 CalculatorTest > Mutation: (Calculator.kt:7) > → >= > ... PASSED
 CalculatorTest > Mutation: (Calculator.kt:7) > → < > ... PASSED
