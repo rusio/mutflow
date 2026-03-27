@@ -12,6 +12,19 @@
 
 > **Early Stage:** mutflow is young and still evolving. Its dual-compilation approach is built to keep production builds clean — mutations only exist in test compilation. The project hasn't seen broad adoption yet, so bug reports and feedback are very welcome!
 
+## Contents
+
+- [What is this?](#what-is-this)
+- [Why?](#why)
+- [What mutflow tests (and what it doesn't)](#what-mutflow-tests-and-what-it-doesnt)
+- [Setup](#setup)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Mutation Operators](#mutation-operators)
+- [Features](#features)
+- [How Mutations Work](#how-mutations-work)
+- [Troubleshooting](#troubleshooting)
+
 ## What is this?
 
 mutflow brings mutation testing to Kotlin with minimal overhead. Instead of the traditional approach (compile and run each mutant separately), mutflow:
@@ -269,6 +282,24 @@ Free-form text after the keyword documents the reason for reviewers.
 
 **Inline comment** suppresses mutations on the same line. **Standalone comment** (on its own line) suppresses mutations on the next line. Comments have zero production overhead — they are stripped by the compiler and nothing appears in the production bytecode.
 
+### Selection and Shuffle Parameters
+
+`MutFlow.underTest { }` accepts optional parameters for controlling mutation selection and ordering:
+
+```kotlin
+// Baseline
+MutFlow.underTest(run = 0, Selection.MostLikelyStable, Shuffle.PerChange) {
+    calculator.isPositive(5)
+}
+
+// Mutation runs
+MutFlow.underTest(run = 1, Selection.MostLikelyStable, Shuffle.PerChange) {
+    calculator.isPositive(5)
+}
+```
+
+Selection strategies (`PureRandom`, `MostLikelyRandom`, `MostLikelyStable`) and shuffle modes (`PerRun`, `PerChange`) control how mutations are prioritized. The `@MutFlowTest` annotation uses sensible defaults automatically — these parameters are only needed for custom integrations.
+
 ## Mutation Operators
 
 - [**Relational comparisons**](#how-relational-comparison-mutations-work) — `>`, `<`, `>=`, `<=` with 2 variants each (boundary + flip)
@@ -312,7 +343,9 @@ Free-form text after the keyword documents the reason for reviewers.
 **Extensibility**
 - **Extensible architecture** — `MutationOperator` (for calls), `ReturnMutationOperator` (for returns), `WhenMutationOperator` (for boolean logic), and `FunctionBodyMutationOperator` (for function bodies) interfaces for adding new mutation types
 
-## How Relational Comparison Mutations Work
+## How Mutations Work
+
+### How Relational Comparison Mutations Work
 
 Relational comparison mutations verify that your tests exercise boundary conditions and direction of comparisons.
 
@@ -334,7 +367,7 @@ Each relational operator produces 2 variants — a boundary mutation (include/ex
 
 If your tests only use values far from the boundary (e.g., `isPositive(5)` and `isPositive(-5)`), the boundary variant may survive — revealing the gap.
 
-## How Constant Boundary Mutations Work
+### How Constant Boundary Mutations Work
 
 The constant boundary mutation detects poorly tested boundaries that operator mutations alone cannot find.
 
@@ -349,7 +382,7 @@ The constant boundary mutation detects poorly tested boundaries that operator mu
 
 If your tests only use values far from the boundary (e.g., `isPositive(5)` and `isPositive(-5)`), the constant mutations will survive — revealing the gap in boundary testing.
 
-## How Arithmetic Mutations Work
+### How Arithmetic Mutations Work
 
 Arithmetic mutations verify that your tests detect when math operations are swapped.
 
@@ -371,7 +404,7 @@ The full set of arithmetic swaps:
 
 **Safe division:** When mutating `*` to `/`, mutflow guards against division by zero. If the divisor is 0, it computes `divisor / dividend` instead; if both are 0, it returns 1. This prevents `ArithmeticException` from masking the actual mutation test.
 
-## How Equality Swap Mutations Work
+### How Equality Swap Mutations Work
 
 Equality swap mutations verify that your tests distinguish between `==` and `!=` conditions.
 
@@ -389,7 +422,7 @@ And for `fun isNotZero(x: Int) = x != 0`:
 
 If your tests only exercise values where `==` and `!=` produce different results for obvious inputs, the mutations will be killed. But if tests use ambiguous inputs or don't assert the return value, survivors reveal the gap.
 
-## How Boolean Logic Mutations Work
+### How Boolean Logic Mutations Work
 
 Boolean logic mutations verify that your tests distinguish between `&&` (AND) and `||` (OR) conditions.
 
@@ -407,7 +440,7 @@ And for `fun isOutOfRange(x: Int) = x < 0 || x > 100`:
 
 These mutations catch tests that only exercise the "happy path" where both conditions agree. If `&&` and `||` would produce the same result for all your test inputs, the mutation survives — revealing that your tests don't cover the case where the two conditions disagree.
 
-## How Boolean Inversion Mutations Work
+### How Boolean Inversion Mutations Work
 
 Boolean inversion mutations verify that your tests detect when a boolean value is flipped. Every boolean expression — function calls, property accesses, and variable/parameter reads — is mutated by wrapping it in `!`.
 
@@ -440,7 +473,7 @@ fun inheritedSelection(invertSelection: Boolean, parentSelected: Boolean): Boole
 
 These mutations catch tests that don't verify the polarity of boolean results. If your test calls a function but doesn't assert the actual boolean value, the inversion mutation will survive.
 
-## How Boolean Return Mutations Work
+### How Boolean Return Mutations Work
 
 Boolean return mutations verify that your tests actually check return values, not just that the code runs without error.
 
@@ -462,7 +495,7 @@ fun isInRange(x: Int, min: Int, max: Int): Boolean {
 
 **Note:** Boolean return mutations only apply to explicit `return` statements in block-bodied functions. Expression-bodied functions (`fun foo() = expr`) are mutated via their expression operators instead.
 
-## How Nullable Return Mutations Work
+### How Nullable Return Mutations Work
 
 Nullable return mutations verify that your tests check actual return values, not just non-null.
 
@@ -498,7 +531,7 @@ assertEquals("Alice", user?.name)  // Catches null mutation
 
 **Note:** Nullable return mutations only apply to explicit `return` statements in block-bodied functions that return nullable types. The mutation replaces the return value with `null`.
 
-## How Void Function Body Mutations Work
+### How Void Function Body Mutations Work
 
 Void function body mutations verify that your tests check side effects, not just that a function can be called without error.
 
@@ -529,24 +562,6 @@ assertEquals(listOf("apple"), service.getItems())  // Catches empty body mutatio
 ```
 
 **Note:** Void function body mutations only apply to functions that return Unit, have non-empty bodies, and are not property accessors (getters/setters).
-
-## Manual API
-
-For advanced use cases or custom integrations, you can use the explicit API with selection and shuffle parameters:
-
-```kotlin
-// Baseline
-MutFlow.underTest(run = 0, Selection.MostLikelyStable, Shuffle.PerChange) {
-    calculator.isPositive(5)
-}
-
-// Mutation runs
-MutFlow.underTest(run = 1, Selection.MostLikelyStable, Shuffle.PerChange) {
-    calculator.isPositive(5)
-}
-```
-
-Selection strategies (`PureRandom`, `MostLikelyRandom`, `MostLikelyStable`) and shuffle modes (`PerRun`, `PerChange`) control how mutations are prioritized. These are internal implementation details — the `@MutFlowTest` annotation uses sensible defaults automatically.
 
 ## Troubleshooting
 
