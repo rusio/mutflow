@@ -23,6 +23,7 @@
 - [Mutation Operators](#mutation-operators)
 - [Features](#features)
 - [How Mutations Work](#how-mutations-work)
+- [Design Decisions](#design-decisions)
 - [Troubleshooting](#troubleshooting)
 
 ## What is this?
@@ -563,6 +564,10 @@ assertEquals(listOf("apple"), service.getItems())  // Catches empty body mutatio
 
 **Note:** Void function body mutations only apply to functions that return Unit, have non-empty bodies, and are not property accessors (getters/setters).
 
+## Design Decisions
+
+See [DESIGN.md](DESIGN.md) for architecture details, design decisions, and implementation plan.
+
 ## Troubleshooting
 
 ### Code coverage (JaCoCo/Kover) reports 0% when mutflow is enabled
@@ -577,10 +582,6 @@ mutflow compiles your sources twice — once normally (`main`) and once with mut
 ```
 
 See [Disabling Mutation Testing](#disabling-mutation-testing) for all configuration options.
-
-## Documentation
-
-See [DESIGN.md](DESIGN.md) for the full design document, architecture details, and implementation plan.
 
 ---
 Co-developed with an AI assistant.
