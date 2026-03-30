@@ -1,6 +1,12 @@
 package io.github.anschnapp.mutflow
 
+import java.util.UUID
 import kotlin.random.Random
+
+/**
+ * Identifier for [MutFlowSession] instances.
+ */
+data class SessionId(val value: UUID)
 
 /**
  * Holds all mutation testing state for a single test class execution.
@@ -9,7 +15,7 @@ import kotlin.random.Random
  * closed when the class finishes.
  */
 class MutFlowSession internal constructor(
-    val id: String,
+    val id: SessionId,
     val selection: Selection,
     val shuffle: Shuffle,
     val maxRuns: Int,

@@ -258,13 +258,13 @@ class MutFlowTest {
 
     // ==================== Target filter tests (session-based) ====================
 
-    private fun runBaselineWithSession(sessionId: String, block: () -> Unit) {
+    private fun runBaselineWithSession(sessionId: SessionId, block: () -> Unit) {
         MutFlow.startRun(sessionId, 0)
         MutFlow.underTest(block)
         MutFlow.endRun(sessionId)
     }
 
-    private fun runMutationWithSession(sessionId: String, run: Int): Mutation? {
+    private fun runMutationWithSession(sessionId: SessionId, run: Int): Mutation? {
         val mutation = MutFlow.selectMutationForRun(sessionId, run) ?: return null
         MutFlow.startRun(sessionId, run, mutation)
         MutFlow.underTest { /* execute with mutation active */ }

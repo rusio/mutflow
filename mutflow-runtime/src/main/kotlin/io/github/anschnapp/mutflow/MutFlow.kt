@@ -30,12 +30,12 @@ import kotlin.random.Random
 object MutFlow {
 
     // Active sessions, keyed by session ID
-    private val sessions = mutableMapOf<String, MutFlowSession>()
+    private val sessions = mutableMapOf<SessionId, MutFlowSession>()
 
     // Maps thread ID to session ID, set in startRun, cleared in endRun.
     // Allows parameterless underTest() to find the right session when
     // multiple test classes run in parallel on different threads.
-    private val threadToSession = ConcurrentHashMap<Long, String>()
+    private val threadToSession = ConcurrentHashMap<Long, SessionId>()
 
     // ==================== Session Management (for JUnit extension) ====================
 
@@ -59,8 +59,8 @@ object MutFlow {
         includeTargets: List<String> = emptyList(),
         excludeTargets: List<String> = emptyList(),
         timeoutMs: Long = 60_000
-    ): String {
-        val id = UUID.randomUUID().toString()
+    ): SessionId {
+        val id = SessionId(UUID.randomUUID())
         val session = MutFlowSession(
             id = id,
             selection = selection,
@@ -80,7 +80,7 @@ object MutFlow {
      * Closes a session and cleans up its state.
      * Called by JUnit extension when a @MutFlowTest class finishes.
      */
-    fun closeSession(sessionId: String) {
+    fun closeSession(sessionId: SessionId) {
         val session = sessions.remove(sessionId)
         session?.printSummary()
     }
@@ -93,7 +93,7 @@ object MutFlow {
      * @param run Run number (must be >= 1)
      * @return The selected mutation, or null if exhausted
      */
-    fun selectMutationForRun(sessionId: String, run: Int): Mutation? {
+    fun selectMutationForRun(sessionId: SessionId, run: Int): Mutation? {
         val session = sessions[sessionId]
             ?: error("Session not found: $sessionId")
         return session.selectMutationForRun(run)
@@ -107,7 +107,7 @@ object MutFlow {
      * @param run Run number: 0 = baseline, 1+ = mutation runs
      * @param mutation Pre-selected mutation for this run (null for baseline)
      */
-    fun startRun(sessionId: String, run: Int, mutation: Mutation? = null) {
+    fun startRun(sessionId: SessionId, run: Int, mutation: Mutation? = null) {
         val session = sessions[sessionId]
             ?: error("Session not found: $sessionId")
         threadToSession[Thread.currentThread().id] = sessionId
@@ -118,7 +118,7 @@ object MutFlow {
      * Ends the current run within a session.
      * Called by JUnit extension after each class template invocation.
      */
-    fun endRun(sessionId: String) {
+    fun endRun(sessionId: SessionId) {
         sessions[sessionId]?.endRun()
         threadToSession.remove(Thread.currentThread().id)
     }
@@ -126,12 +126,12 @@ object MutFlow {
     /**
      * Returns the session for the given ID.
      */
-    fun getSession(sessionId: String): MutFlowSession? = sessions[sessionId]
+    fun getSession(sessionId: SessionId): MutFlowSession? = sessions[sessionId]
 
     /**
      * Returns true if the session has untested mutations remaining.
      */
-    fun hasUntestedMutations(sessionId: String): Boolean {
+    fun hasUntestedMutations(sessionId: SessionId): Boolean {
         return sessions[sessionId]?.hasUntestedMutations() ?: false
     }
 
