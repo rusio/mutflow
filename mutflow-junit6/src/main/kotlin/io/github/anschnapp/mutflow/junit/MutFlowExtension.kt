@@ -5,6 +5,7 @@ import io.github.anschnapp.mutflow.MutantSurvivedException
 import io.github.anschnapp.mutflow.MutationTimedOutException
 import io.github.anschnapp.mutflow.Mutation
 import io.github.anschnapp.mutflow.Selection
+import io.github.anschnapp.mutflow.SessionId
 import io.github.anschnapp.mutflow.Shuffle
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.AfterTestExecutionCallback
@@ -86,7 +87,7 @@ class MutFlowExtension : ClassTemplateInvocationContextProvider {
     }
 
     private fun createInvocationContext(
-        sessionId: String,
+        sessionId: SessionId,
         run: Int,
         mutation: Mutation?
     ): ClassTemplateInvocationContext {
