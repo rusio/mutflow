@@ -60,6 +60,7 @@ object MutFlow {
         includeTargets: List<String> = emptyList(),
         excludeTargets: List<String> = emptyList(),
         timeout: Duration = Duration.ofMinutes(1)
+        verificationMode: VerificationMode = VerificationMode.STRICT
     ): SessionId {
         val id = SessionId(UUID.randomUUID())
         val session = MutFlowSession(
@@ -72,6 +73,7 @@ object MutFlow {
             includeTargets = includeTargets,
             excludeTargets = excludeTargets,
             timeout = timeout
+            verificationMode = verificationMode
         )
         sessions[id] = session
         return id
@@ -390,6 +392,33 @@ enum class Selection {
      * Tie-breaker: alphabetical by pointId, then by variantIndex.
      */
     MostLikelyStable
+}
+
+/**
+ * Controls how mutation testing results are verified.
+ *
+ * Can be set per test class via @MutFlowTest(verificationMode = ...) or
+ * globally via the MUTFLOW_VERIFICATION_MODE environment variable.
+ * The environment variable takes precedence over the annotation value.
+ */
+enum class VerificationMode {
+    /**
+     * Surviving mutations cause test failure.
+     * This is the default mode — ensures all mutations are killed.
+     */
+    STRICT,
+
+    /**
+     * Surviving mutations are reported in the summary but do not cause test failure.
+     * Useful when building up test coverage incrementally.
+     */
+    LENIENT,
+
+    /**
+     * Mutation runs are skipped entirely — only the baseline (regular tests) runs.
+     * Useful for fast feedback when mutation testing is not needed.
+     */
+    DISABLED
 }
 
 /**

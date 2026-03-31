@@ -20,7 +20,7 @@ mutflow uses the "mutant schemata" (or "meta-mutant") technique:
 
 1. **Compile once**: The compiler plugin injects ALL mutation variants into the code at compile time, guarded by conditional switches
 2. **Runtime selection**: At test runtime, a control mechanism activates exactly one mutation per run
-3. **Multiple runs**: Tests execute multiple times — once as baseline, then with different single mutations
+3. **Multiple runs**: Tests execute multiple times - once as baseline, then with different single mutations
 4. **Fail on survivors**: If a mutant survives (tests pass when they shouldn't), the test fails with actionable feedback
 
 ### Example Transformation
@@ -39,7 +39,7 @@ class CalculatorTest {
 }
 ```
 
-**Production code — before:**
+**Production code - before:**
 ```kotlin
 @MutationTarget
 class Calculator {
@@ -49,7 +49,7 @@ class Calculator {
 }
 ```
 
-**Production code — after compiler plugin:**
+**Production code - after compiler plugin:**
 ```kotlin
 @MutationTarget
 class Calculator {
@@ -82,7 +82,7 @@ class Calculator {
 }
 ```
 
-This nested structure is generated recursively by the compiler plugin. Each matching `MutationOperator` wraps the expression, with the `else` branch feeding into the next operator. Since only one mutation is active at runtime, there's no complexity — the active mutation's branch executes, all others fall through to original.
+This nested structure is generated recursively by the compiler plugin. Each matching `MutationOperator` wraps the expression, with the `else` branch feeding into the next operator. Since only one mutation is active at runtime, there's no complexity - the active mutation's branch executes, all others fall through to original.
 
 ### Runtime Discovery Model
 
@@ -127,7 +127,7 @@ class CalculatorTest {
 The `MutFlow.underTest` block:
 - Wraps only the action under test (the "when" in given/when/then)
 - Returns the result for assertions outside the block
-- Assertions stay outside — they should fail when mutations change behavior
+- Assertions stay outside - they should fail when mutations change behavior
 - When using `@MutFlowTest`, the JUnit extension manages session lifecycle internally
 
 ### 2. Global Baseline and Run Model
@@ -202,8 +202,8 @@ The "touch count" is calculated during baseline (run 0): each time a test execut
 
 | Shuffle | Behavior |
 |---------|----------|
-| `PerRun` | New random seed each JVM/CI run — exploratory |
-| `PerChange` | Seed based on `hash(discoveredPoints)` — stable until code changes |
+| `PerRun` | New random seed each JVM/CI run - exploratory |
+| `PerChange` | Seed based on `hash(discoveredPoints)` - stable until code changes |
 
 **Typical workflow:**
 1. During development: use `MostLikelyRandom` + `PerRun` to explore high-risk mutations
@@ -228,7 +228,7 @@ GlobalRegistry {
 ```
 
 **Lifecycle:**
-1. **Run 0 (all tests)**: Baseline discovery — mutation points merged globally, touch counts accumulated
+1. **Run 0 (all tests)**: Baseline discovery - mutation points merged globally, touch counts accumulated
 2. **Run 1+**: For each run:
    - Select a mutation point (using Selection strategy + touch counts)
    - Pick a variant for that point (excluding already-tested variants)
@@ -248,7 +248,7 @@ When a mutant survives, the build fails with a display name like:
 MUTANT SURVIVED: (Calculator.kt:8) > → >=
 ```
 
-This display name can be copied into the `@MutFlowTest` annotation to **trap** the mutant — ensuring it runs first every time while you fix the test gap:
+This display name can be copied into the `@MutFlowTest` annotation to **trap** the mutant - ensuring it runs first every time while you fix the test gap:
 
 ```kotlin
 @MutFlowTest(
@@ -282,20 +282,41 @@ Traps are a **temporary debugging aid**:
 - Easy to update if code moves (the warning shows available mutations)
 - Unambiguous even when the same operator appears multiple times on one line
 
-### 6. Scoped Mutations via Annotations
+### 6. Scoped Mutations via Annotations and Gradle Config
 
-The compiler plugin only injects mutations into annotated classes:
+The compiler plugin injects mutations into classes that are either annotated with `@MutationTarget` or matched by target patterns configured in the Gradle plugin:
 
 ```kotlin
+// Option 1: Annotation on production code
 @MutationTarget
 class Calculator {
     // mutations injected here
 }
 
-class Logger {
-    // no mutations - not under test
+// Option 2: Gradle config (no annotation needed on production code)
+// build.gradle.kts
+mutflow {
+    targets = listOf(
+        "com.example.Calculator",       // exact class
+        "com.example.service.*",        // all classes in a package
+        "com.example.service.**",       // package + all subpackages
+        "com.example.*Service"          // glob pattern
+    )
 }
 ```
+
+Both mechanisms can be combined freely - a class is mutated if it matches either `@MutationTarget` or a Gradle target pattern. If both match the same class, it is simply mutated once (no duplication).
+
+**Why two mechanisms?**
+- `@MutationTarget` is convenient for small projects and makes mutation scope visible in the code
+- Gradle config addresses a common concern: annotating production code with test-related annotations from an external library feels invasive (see [GitHub issue #2](https://github.com/anschnapp/mutflow/issues/2)). The Gradle config keeps all mutation testing configuration in the test/build layer
+
+**Pattern matching:** Target patterns support glob-style matching:
+- `.` matches literal dots in package/class names
+- `*` matches a single name segment (does not cross dots)
+- `**` matches any number of segments (crosses dots)
+
+Patterns are compiled to regexes once at plugin initialization and matched against each class's fully qualified name during IR transformation.
 
 This limits bytecode bloat and keeps mutations relevant.
 
@@ -320,19 +341,19 @@ The `@SuppressMutations` annotation can be applied to:
 
 #### Line-Level Suppression via Comments
 
-For finer granularity, individual lines can be suppressed using comments — similar to SonarQube's `// NOSONAR`. Two keywords are supported with the same technical effect but different semantic intent:
+For finer granularity, individual lines can be suppressed using comments - similar to SonarQube's `// NOSONAR`. Two keywords are supported with the same technical effect but different semantic intent:
 
-- `mutflow:ignore` — the code is not worth testing (logging, debug utilities, heuristics)
-- `mutflow:falsePositive` — the mutation is an equivalent mutant or not meaningful to test
+- `mutflow:ignore` - the code is not worth testing (logging, debug utilities, heuristics)
+- `mutflow:falsePositive` - the mutation is an equivalent mutant or not meaningful to test
 
 Free-form text after the keyword serves as documentation for reviewers.
 
-**Inline comment** — suppresses mutations on the same line:
+**Inline comment** - suppresses mutations on the same line:
 ```kotlin
 val threshold = x > 100 // mutflow:ignore this is just a heuristic threshold
 ```
 
-**Standalone comment** — suppresses mutations on the next line:
+**Standalone comment** - suppresses mutations on the next line:
 ```kotlin
 // mutflow:falsePositive equivalent mutant, >= and > both valid here
 if (retryCount > MAX_RETRIES) { ... }
@@ -345,11 +366,11 @@ if (retryCount > MAX_RETRIES) { ... }
 4. Mutation operators skip IR nodes whose source line falls in the suppressed set
 5. Source file reads are cached per file path (no re-reading for multiple classes in the same file)
 
-**Zero production overhead:** Comments are stripped by the Kotlin compiler — nothing appears in production bytecode. The suppression logic runs entirely during compilation.
+**Zero production overhead:** Comments are stripped by the Kotlin compiler - nothing appears in production bytecode. The suppression logic runs entirely during compilation.
 
 **Defensive behavior:** If the source file cannot be read (e.g., generated sources, unusual build setups), a warning is printed and compilation continues without comment-based suppression:
 ```
-[mutflow] WARNING: Could not read source file Calculator.kt — comment-based suppression (mutflow:ignore / mutflow:falsePositive) unavailable for this file
+[mutflow] WARNING: Could not read source file Calculator.kt - comment-based suppression (mutflow:ignore / mutflow:falsePositive) unavailable for this file
 ```
 
 **Why not a function call or annotation?** A function call like `ignoreMutationsForNextLine()` would leave a no-op call in production bytecode (the compiler plugin only runs during test compilation in the dual-build setup). Annotations cannot target individual expressions/lines in Kotlin. Comments are zero-cost and familiar from tools like SonarQube and PMD.
@@ -383,7 +404,7 @@ class PaymentServiceTest { ... }
 
 ### 8. Partial Run Detection
 
-When running a single test method from an IDE (e.g., IntelliJ's "Run Test" on one method), mutation testing is automatically skipped. This prevents false positives — mutations that would be killed by *other* tests in the class would incorrectly appear as survivors.
+When running a single test method from an IDE (e.g., IntelliJ's "Run Test" on one method), mutation testing is automatically skipped. This prevents false positives - mutations that would be killed by *other* tests in the class would incorrectly appear as survivors.
 
 **How it works:**
 1. At session creation, the extension counts `@Test` methods in the class
@@ -399,11 +420,11 @@ When running a single test method from an IDE (e.g., IntelliJ's "Run Test" on on
 
 The baseline still runs normally (tests execute, mutations are discovered), but no mutation runs occur. This ensures you get your test results quickly without misleading mutation feedback.
 
-**Rationale:** Mutation testing evaluates the *entire test suite's* ability to catch mutations. Running it with a subset produces meaningless results — better to skip and provide a clear message.
+**Rationale:** Mutation testing evaluates the *entire test suite's* ability to catch mutations. Running it with a subset produces meaningless results - better to skip and provide a clear message.
 
 ### 9. Timeout Detection for Infinite Loops
 
-Certain mutations can cause infinite loops — most commonly when flipping a relational operator in a loop condition (e.g., `<` → `>` in `while (i < n)`). Without protection, these mutations would hang the test run indefinitely.
+Certain mutations can cause infinite loops - most commonly when flipping a relational operator in a loop condition (e.g., `<` → `>` in `while (i < n)`). Without protection, these mutations would hang the test run indefinitely.
 
 mutflow detects this at the compiler level by injecting `MutationRegistry.checkTimeout()` at the top of every loop body in `@MutationTarget` classes:
 
@@ -425,16 +446,16 @@ while (i < n) {
 **How it works:**
 1. When a mutation run starts, `MutationRegistry.withSession()` computes a deadline: `System.nanoTime() + timeoutMs * 1_000_000`
 2. Each loop iteration calls `checkTimeout()`, which compares current time against the deadline
-3. If exceeded, throws `MutationTimedOutException` — the test **fails** with a message suggesting `// mutflow:ignore`
+3. If exceeded, throws `MutationTimedOutException` - the test **fails** with a message suggesting `// mutflow:ignore`
 4. The timed-out mutation is recorded as `MutationResult.TimedOut` and shown in the summary
 
 **Performance characteristics of `checkTimeout()`:**
-- **No active session** (production code): immediate `null` check return — effectively zero cost
-- **Baseline run** (no active mutation): `deadlineNanos == 0` check — fast return
+- **No active session** (production code): immediate `null` check return - effectively zero cost
+- **Baseline run** (no active mutation): `deadlineNanos == 0` check - fast return
 - **Mutation run**: one `System.nanoTime()` call per loop iteration (~20-30ns on modern JVMs)
 
 **Why compiler-injected checks instead of thread-based timeout?**
-A `Future.get(timeout)` approach can detect timeouts but cannot stop tight CPU-bound infinite loops — `Thread.interrupt()` only works if the loop checks interruption (most don't). The compiler-injected approach cleanly breaks even tight loops like `while(true) { counter++ }` from within.
+A `Future.get(timeout)` approach can detect timeouts but cannot stop tight CPU-bound infinite loops - `Thread.interrupt()` only works if the loop checks interruption (most don't). The compiler-injected approach cleanly breaks even tight loops like `while(true) { counter++ }` from within.
 
 **Loop coverage:**
 All loop types in Kotlin compile to `IrWhileLoop` or `IrDoWhileLoop` in IR:
@@ -444,7 +465,7 @@ All loop types in Kotlin compile to `IrWhileLoop` or `IrDoWhileLoop` in IR:
 | `while (...)` | `IrWhileLoop` | Yes |
 | `do { ... } while (...)` | `IrDoWhileLoop` | Yes |
 | `for (i in ...)` | `IrWhileLoop` (desugared) | Yes |
-| `forEach { }`, `map { }`, etc. | `IrCall` (stdlib function) | No — but loop control is in stdlib, not user code |
+| `forEach { }`, `map { }`, etc. | `IrCall` (stdlib function) | No - but loop control is in stdlib, not user code |
 
 Higher-order function "loops" like `forEach` can't cause infinite loops from mutations because the loop control (`hasNext()`, counter) lives in the stdlib, not in the mutated code.
 
@@ -454,8 +475,57 @@ Higher-order function "loops" like `forEach` can't cause infinite loops from mut
 class CalculatorTest { ... }
 ```
 
-**Design rationale — fail loudly, not silently:**
+**Design rationale - fail loudly, not silently:**
 When a timeout occurs, the test **fails** rather than silently marking the mutation as killed. This ensures the developer notices and takes action (adds `// mutflow:ignore` on the affected line). Silent handling would mask slow mutation runs that accumulate over time.
+
+### 10. Verification Mode
+
+Controls how surviving mutations are handled. Three modes are available:
+
+```kotlin
+enum class VerificationMode {
+    STRICT,    // survivors cause test failure (default)
+    LENIENT,   // survivors are reported but don't fail
+    DISABLED   // mutation runs are skipped entirely
+}
+```
+
+**Per-annotation configuration:**
+```kotlin
+@MutFlowTest(verificationMode = VerificationMode.LENIENT)
+class CalculatorTest { ... }
+```
+
+**Environment variable override:**
+
+The `MUTFLOW_VERIFICATION_MODE` environment variable takes precedence over the annotation value. This enables phased CI pipelines without changing code:
+
+```bash
+MUTFLOW_VERIFICATION_MODE=DISABLED ./gradlew test   # fast: regular tests only
+MUTFLOW_VERIFICATION_MODE=LENIENT ./gradlew test     # report mutations, don't fail
+./gradlew test                                        # full strict mutation testing
+```
+
+**Resolution order:**
+1. Check `MUTFLOW_VERIFICATION_MODE` environment variable
+2. If set and valid (`STRICT`, `LENIENT`, `DISABLED`, case-insensitive): use it
+3. If set but invalid: print warning, fall back to annotation value
+4. If not set: use annotation value (default: `STRICT`)
+
+**How each mode affects the test lifecycle:**
+
+| Phase | STRICT | LENIENT | DISABLED |
+|-------|--------|---------|----------|
+| Baseline (Run 0) | Runs normally | Runs normally | Runs normally |
+| Mutation runs | All mutations tested | All mutations tested | Skipped entirely |
+| Surviving mutation | `MutantSurvivedException` thrown — test fails | Printed as warning, test passes | N/A |
+| Summary | Full report | Full report | No mutation data |
+
+**Design rationale:**
+
+The default is `STRICT` because mutflow's value proposition is catching test gaps — silently ignoring survivors would undermine that. However, real-world adoption is incremental: teams adding mutflow to an existing codebase need a way to see mutation results without blocking their build. `LENIENT` serves this purpose. `DISABLED` provides a zero-overhead escape hatch for performance-sensitive workflows (equivalent to `mutflow.enabled=false` at the Gradle level but controllable per-run without rebuilding).
+
+The environment variable override is intentional: it allows the same test code to behave differently in different pipeline stages. A team can run `DISABLED` in their fast-feedback loop, `LENIENT` in nightly builds, and `STRICT` in release pipelines — all without touching the test annotations.
 
 ## Architecture
 
@@ -480,6 +550,7 @@ When a timeout occurs, the test **fails** rather than silently marking the mutat
 │                           │  Depends on: mutflow-core           │
 ├─────────────────────────────────────────────────────────────────┤
 │  mutflow-compiler-plugin  │  Transforms @MutationTarget classes │
+│                           │  and Gradle-configured target classes│
 │                           │  Injects MutationRegistry.check()   │
 │                           │  Four operator interfaces:          │
 │                           │    MutationOperator (IrCall nodes)  │
@@ -562,7 +633,7 @@ This keeps framework-specific code minimal (~100 lines) and enables easy porting
    └──────────────────┘      │                     ">=,<", occurrenceOnLine=1))  │
                              └───────────────────────────────────────────────────┘
 
-2. Baseline (run=0) — ALL tests run first:
+2. Baseline (run=0) - ALL tests run first:
 
    Test A: underTest(run=0, selection, shuffle) { calculator.isPositive(5) }
         │
@@ -589,7 +660,7 @@ This keeps framework-specific code minimal (~100 lines) and enables easy porting
        testedMutations: {}
    }
 
-3. Mutation runs (run=1, 2, ...) — ALL tests run with SAME mutation:
+3. Mutation runs (run=1, 2, ...) - ALL tests run with SAME mutation:
 
    First underTest(run=1, selection=MostLikelyRandom, shuffle=PerChange):
         │
@@ -625,14 +696,14 @@ This keeps framework-specific code minimal (~100 lines) and enables easy porting
 
 The Gradle plugin exposes a `mutflow` extension with an `enabled` property (default: `true`). When set to `false`:
 
-1. **No `mutatedMain` source set** is created — no extra compilation step
+1. **No `mutatedMain` source set** is created - no extra compilation step
 2. **No compiler plugin** is registered (`isApplicable` returns `false`)
 3. **Only `mutflow-annotations` and `mutflow-junit6`** are added as dependencies, so `@MutationTarget` and `@MutFlowTest` still compile
 4. **Tests run normally** but discover 0 mutations (no `MutationRegistry.check()` calls exist in the code)
 
 The property supports three configuration methods with the following precedence:
-- **DSL** (`mutflow { enabled = false }`) — highest, set explicitly in build script
-- **Gradle property** (`-Pmutflow.enabled=false` or `gradle.properties`) — used as convention (default) if DSL value is not set
+- **DSL** (`mutflow { enabled = false }`) - highest, set explicitly in build script
+- **Gradle property** (`-Pmutflow.enabled=false` or `gradle.properties`) - used as convention (default) if DSL value is not set
 
 This is useful for:
 - CI pipelines where mutation testing only runs on specific builds (e.g., nightly, not on every push)
@@ -652,7 +723,7 @@ The compiler plugin is applied ONLY to test compilation, never production:
 
 ### Thread Safety and Parallel Test Execution
 
-`MutationRegistry` is a singleton with a single `currentSession` slot — only one mutation session can be active at a time. This is a fundamental constraint of the mutant schemata approach: compiler-injected `MutationRegistry.check()` calls have no session context, so they read from a global.
+`MutationRegistry` is a singleton with a single `currentSession` slot - only one mutation session can be active at a time. This is a fundamental constraint of the mutant schemata approach: compiler-injected `MutationRegistry.check()` calls have no session context, so they read from a global.
 
 **Why not ThreadLocal?** Using `ThreadLocal` for the session would break coroutines (suspend functions can resume on different dispatcher threads) and reactive frameworks (operators run on scheduler threads). We intentionally avoid `ThreadLocal` to keep these doors open for future support.
 
@@ -682,7 +753,7 @@ Each test class has its own `MutFlowSession`, but the parameterless `MutFlow.und
 - `MutFlow.underTest {}` looks up the session by current thread ID
 - `MutFlow.endRun(sessionId)` deregisters the thread
 
-This is not a `ThreadLocal` — it's an explicit `ConcurrentHashMap<Long, String>` used only for test-thread routing. The coroutine concern doesn't apply here because `underTest()` is always called from the test thread, before entering the `withSession` synchronized block where production code (potentially using coroutines) executes.
+This is not a `ThreadLocal` - it's an explicit `ConcurrentHashMap<Long, String>` used only for test-thread routing. The coroutine concern doesn't apply here because `underTest()` is always called from the test thread, before entering the `withSession` synchronized block where production code (potentially using coroutines) executes.
 
 **Summary of parallel behavior:**
 - Non-mutation test classes: fully parallel, unaffected
@@ -716,11 +787,11 @@ Code only reached outside `MutFlow.underTest { }` blocks produces no mutations. 
 
 ## Prior Art
 
-- **[Metamutator (SpoonLabs)](https://github.com/SpoonLabs/metamutator)** — Java implementation of mutant schemata. Same core technique. Project appears inactive. Requires separate CLI tool.
-- **[Pitest](https://pitest.org/)** — Industry standard JVM mutation testing. Traditional approach (compile per mutant). Thorough but slow.
-- **[Arcmutate](https://www.arcmutate.com/)** — Pitest plugin for Kotlin bytecode understanding.
-- **[Mutant-Kraken](https://conf.researchr.org/details/icst-2024/mutation-2024-papers/2/Mutant-Kraken-A-Mutation-Testing-Tool-for-Kotlin)** — Kotlin mutation testing via AST manipulation. Traditional approach.
-- **[Untch et al. (1993)](https://dl.acm.org/doi/10.1145/154183.154265)** — Original academic paper on mutant schemata technique.
+- **[Metamutator (SpoonLabs)](https://github.com/SpoonLabs/metamutator)** - Java implementation of mutant schemata. Same core technique. Project appears inactive. Requires separate CLI tool.
+- **[Pitest](https://pitest.org/)** - Industry standard JVM mutation testing. Traditional approach (compile per mutant). Thorough but slow.
+- **[Arcmutate](https://www.arcmutate.com/)** - Pitest plugin for Kotlin bytecode understanding.
+- **[Mutant-Kraken](https://conf.researchr.org/details/icst-2024/mutation-2024-papers/2/Mutant-Kraken-A-Mutation-Testing-Tool-for-Kotlin)** - Kotlin mutation testing via AST manipulation. Traditional approach.
+- **[Untch et al. (1993)](https://dl.acm.org/doi/10.1145/154183.154265)** - Original academic paper on mutant schemata technique.
 
 ### What mutflow adds
 - Kotlin-native K2 compiler plugin (not Java tooling adapted for Kotlin)
@@ -743,11 +814,13 @@ Code only reached outside `MutFlow.underTest { }` blocks produces no mutations. 
 
 **mutflow-compiler-plugin:**
 - K2 compiler plugin with extensible mutation operator mechanism
+- `MutflowCommandLineProcessor` receives target patterns from Gradle plugin via `SubpluginOption`
+- Target pattern matching: glob-style patterns (`*`, `**`) compiled to regex for FQN matching
 - Four operator interfaces for different IR node types:
-  - `MutationOperator` — for `IrCall` nodes (comparison operators, etc.)
-  - `ReturnMutationOperator` — for `IrReturn` nodes (return statement mutations)
-  - `FunctionBodyMutationOperator` — for function declarations (body-level mutations)
-  - `WhenMutationOperator` — for `IrWhen` nodes (boolean logic operators)
+  - `MutationOperator` - for `IrCall` nodes (comparison operators, etc.)
+  - `ReturnMutationOperator` - for `IrReturn` nodes (return statement mutations)
+  - `FunctionBodyMutationOperator` - for function declarations (body-level mutations)
+  - `WhenMutationOperator` - for `IrWhen` nodes (boolean logic operators)
 - `RelationalComparisonOperator` handles all comparison operators (`>`, `<`, `>=`, `<=`)
   - Each operator produces 2 variants: boundary mutation + direction flip
 - `ConstantBoundaryOperator` mutates numeric constants in comparisons
@@ -772,7 +845,7 @@ Code only reached outside `MutFlow.underTest { }` blocks produces no mutations. 
 - `EqualitySwapOperator` swaps equality operators
   - `==` → `!=` (1 variant: wraps EQEQ intrinsic with `Boolean.not()`)
   - `!=` → `==` (1 variant: unwraps the `not()` wrapper to expose the inner EQEQ call)
-  - In K2 IR, `==` is a single EQEQ intrinsic; `!=` is `not(EQEQ(a, b))` — two calls both with EXCLEQ origin
+  - In K2 IR, `==` is a single EQEQ intrinsic; `!=` is `not(EQEQ(a, b))` - two calls both with EXCLEQ origin
   - Matches EQEQ calls with EQEQ origin for `==`, and `not()` calls with EXCLEQ origin for `!=`
   - Avoids double-matching the inner EQEQ of `!=` expressions (which would create spurious mutation points)
 - `BooleanInversionOperator` adds negation to boolean expressions
@@ -782,18 +855,18 @@ Code only reached outside `MutFlow.underTest { }` blocks produces no mutations. 
   - The "remove negation" case (`!expr` → `expr`) is implicitly covered: adding `!` to the inner expression of `!expr` produces `!(!expr)` = `expr`
 - Boolean variable/parameter inversion is handled directly by `MutflowIrTransformer.visitGetValue`
   - `varName` → `!varName` (1 variant: wraps boolean `IrGetValue` in `Boolean.not()`)
-  - Not an operator interface — `IrGetValue` is a leaf node, handled inline with a single mutation point
+  - Not an operator interface - `IrGetValue` is a leaf node, handled inline with a single mutation point
 - `BooleanLogicOperator` swaps boolean logic operators
   - `&&` → `||` (1 variant: swaps branch results to short-circuit true)
   - `||` → `&&` (1 variant: swaps branch results to short-circuit false)
   - In K2 IR (2.3.0+), `&&` and `||` are lowered to `IrWhen` expressions with ANDAND/OROR origins
-  - `&&`: `when(ANDAND) { a -> b; else -> false }` — if first is true, evaluate second
-  - `||`: `when(OROR) { a -> true; else -> b }` — if first is true, short-circuit true
+  - `&&`: `when(ANDAND) { a -> b; else -> false }` - if first is true, evaluate second
+  - `||`: `when(OROR) { a -> true; else -> b }` - if first is true, short-circuit true
   - Mutation swaps branch results: ANDAND replaces `b` with `true` and `false` with `b` (and vice versa for OROR)
 - `VoidFunctionBodyOperator` removes entire function bodies of Unit/void functions
   - Produces 1 variant: empty body (all side effects removed)
   - Only matches functions that return Unit, have non-empty bodies, and are not property accessors
-  - Catches tests that don't verify side effects — "what if this function did nothing?"
+  - Catches tests that don't verify side effects - "what if this function did nothing?"
   - Operates at the function declaration level, not at call sites
 - Recursive operator application: multiple operators can match the same expression
 - Type-agnostic: works with `Int`, `Long`, `Double`, `Float`, etc.
@@ -815,12 +888,14 @@ Code only reached outside `MutFlow.underTest { }` blocks produces no mutations. 
 - Touch count tracking during baseline
 - Target filtering: `includeTargets`/`excludeTargets` for scoping mutations by class
 - `MutationsExhaustedException` when all mutations tested
+- `VerificationMode` enum: `STRICT`, `LENIENT`, `DISABLED`
 
 **mutflow-junit6:**
 - `@MutFlowTest` meta-annotation combining `@ClassTemplate` + `@ExtendWith`
 - `MutFlowExtension` implementing `ClassTemplateInvocationContextProvider`
 - Session lifecycle management (create, startRun, endRun, close)
 - Mutation selection at context creation for accurate display names
+- Verification mode resolution: annotation parameter with `MUTFLOW_VERIFICATION_MODE` env var override
 
 **mutflow-test-sample:**
 - Integration tests demonstrating both APIs
@@ -875,12 +950,12 @@ CalculatorTest > Mutation: (Calculator.kt:7) 0 → -1 > ... PASSED
 ```
 
 **Key behavior:**
-- **Killed mutations**: When a test assertion fails during a mutation run, the exception is **swallowed** and the test appears as PASSED. This is intentional — a failing assertion means the test caught the mutation (good!). The mutation is recorded as "killed" internally.
+- **Killed mutations**: When a test assertion fails during a mutation run, the exception is **swallowed** and the test appears as PASSED. This is intentional - a failing assertion means the test caught the mutation (good!). The mutation is recorded as "killed" internally.
 - **Surviving mutations**: After all tests in a mutation run complete, if NO test caught the mutation (all tests passed naturally), `MutantSurvivedException` is thrown. This fails the build and indicates a gap in test coverage.
 - **Summary**: At the end of each test class, a summary shows which mutations were tested and their results.
 
 **Why this design?**
-The goal is that **all tests appear green when mutations are properly killed**. Failed assertions during mutation runs are expected and desirable — they prove your tests can detect code changes. Only when tests fail to catch a mutation does the build fail, alerting you to the coverage gap.
+The goal is that **all tests appear green when mutations are properly killed**. Failed assertions during mutation runs are expected and desirable - they prove your tests can detect code changes. Only when tests fail to catch a mutation does the build fail, alerting you to the coverage gap.
 
 **Transformation:**
 ```kotlin
@@ -917,7 +992,7 @@ The current touch count metric is a simple proxy for "how well tested is this mu
   - `x < 5` → LOWER likelihood (tests with x=10 would fail)
 
 **Complex cases** (nested expressions, non-literal boundaries):
-- `(x + y) > threshold` — harder to analyze, would need to track computed values
+- `(x + y) > threshold` - harder to analyze, would need to track computed values
 - These cases may remain suboptimal, falling back to basic touch count
 
 The key insight: instead of a separate "boundary analysis" feature with its own warnings/control flow, we integrate this into the existing likelihood score. Boundary-untested variants naturally bubble to the top of selection priority, get tested first, and produce standard "mutation survived" feedback if they survive.

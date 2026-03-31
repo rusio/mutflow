@@ -155,7 +155,7 @@ class CalculatorJUnitTest {
 
     // ==================== isInRange: x >= min && x <= max ====================
     // Mutations: >= → >, >= → <=, <= → <, <= → >=, return → true, return → false
-    // (no ConstantBoundary — min/max are parameters, not literals)
+    // (no ConstantBoundary - min/max are parameters, not literals)
 
     @Test
     fun `isInRange returns true for value in range`() {

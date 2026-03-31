@@ -10,7 +10,7 @@
   <a href="https://central.sonatype.com/artifact/io.github.anschnapp.mutflow/mutflow-gradle-plugin"><img src="https://img.shields.io/maven-central/v/io.github.anschnapp.mutflow/mutflow-gradle-plugin" alt="Maven Central"></a>
 </p>
 
-> **Early Stage:** mutflow is young and still evolving. Its dual-compilation approach is built to keep production builds clean — mutations only exist in test compilation. The project hasn't seen broad adoption yet, so bug reports and feedback are very welcome!
+> **Early Stage:** mutflow is young and still evolving. Its dual-compilation approach is built to keep production builds clean - mutations only exist in test compilation. The project hasn't seen broad adoption yet, so bug reports and feedback are very welcome!
 
 ## Contents
 
@@ -30,9 +30,9 @@
 
 mutflow brings mutation testing to Kotlin with minimal overhead. Instead of the traditional approach (compile and run each mutant separately), mutflow:
 
-1. **Compiles once** — All mutation variants are injected at compile time as conditional branches
-2. **Discovers dynamically** — Mutation points are found during baseline test execution
-3. **Runs all mutations** — Every discovered mutation is tested by default, no configuration needed
+1. **Compiles once** - All mutation variants are injected at compile time as conditional branches
+2. **Discovers dynamically** - Mutation points are found during baseline test execution
+3. **Runs all mutations** - Every discovered mutation is tested by default, no configuration needed
 
 ## Why?
 
@@ -64,11 +64,35 @@ Once available, the plugin automatically:
 - Adds `mutflow-junit6` to your test dependencies (for `@MutFlowTest` annotation)
 - Configures the compiler plugin for mutation injection
 
-**Important:** The plugin uses a dual-compilation approach — your production JAR remains clean (no mutation code), while tests run against mutated code.
+**Important:** The plugin uses a dual-compilation approach - your production JAR remains clean (no mutation code), while tests run against mutated code.
+
+### Specifying Mutation Targets
+
+There are two ways to tell mutflow which classes to mutate - use either or both:
+
+**Option 1: `@MutationTarget` annotation** (on production code)
+```kotlin
+@MutationTarget
+class Calculator { ... }
+```
+
+**Option 2: Gradle configuration** (no annotations on production code)
+```kotlin
+mutflow {
+    targets = listOf(
+        "com.example.Calculator",       // exact class
+        "com.example.service.*",        // all classes in a package
+        "com.example.service.**",       // package + all subpackages
+        "com.example.*Service"          // glob pattern
+    )
+}
+```
+
+Both can be combined freely. If a class matches either mechanism, it will be mutated. The Gradle config is useful when you prefer not to annotate production code with test-related annotations.
 
 ### Disabling Mutation Testing
 
-You can completely disable mutation testing without removing the plugin. When disabled, no compiler plugin is registered and no extra compilation happens — zero overhead.
+You can completely disable mutation testing without removing the plugin. When disabled, no compiler plugin is registered and no extra compilation happens - zero overhead.
 
 ```kotlin
 // In build.gradle.kts
@@ -87,16 +111,19 @@ Or in `gradle.properties`:
 mutflow.enabled=false
 ```
 
-When disabled, your code still compiles normally (`@MutationTarget` and `@MutFlowTest` annotations are still available), but tests run without any mutations — the mutation summary will show 0 mutations discovered.
+When disabled, your code still compiles normally (`@MutationTarget` and `@MutFlowTest` annotations are still available), but tests run without any mutations - the mutation summary will show 0 mutations discovered.
 
 ## Quick Start
 
 ```kotlin
-// Mark code under test
+// Mark code under test (Option 1: annotation)
 @MutationTarget
 class Calculator {
     fun isPositive(x: Int) = x > 0
 }
+
+// Or use Gradle config instead (Option 2: no annotation needed)
+// mutflow { targets = listOf("com.example.Calculator") }
 
 // Test with mutation testing - simple!
 @MutFlowTest
@@ -164,13 +191,13 @@ CalculatorTest > Mutation: (Calculator.kt:7) 0 → -1 > ... PASSED
 ```
 
 **How to read this output:**
-- **All tests PASSED** — This is the expected result! During mutation runs, when a test's assertion fails (catching the mutation), the exception is swallowed and the test appears green.
-- **Summary shows killed/survived** — After all runs complete, the summary shows which mutations were killed (good) vs survived (gap in coverage).
-- **Build fails with `MutantSurvivedException`** — Only if a mutation survives (no test caught it). This indicates missing test coverage.
+- **All tests PASSED** - This is the expected result! During mutation runs, when a test's assertion fails (catching the mutation), the exception is swallowed and the test appears green.
+- **Summary shows killed/survived** - After all runs complete, the summary shows which mutations were killed (good) vs survived (gap in coverage).
+- **Build fails with `MutantSurvivedException`** - Only if a mutation survives (no test caught it). This indicates missing test coverage.
 
 ## Configuration
 
-By default, `@MutFlowTest` runs all discovered mutations — no configuration needed. For large codebases where running all mutations is too slow, you can limit the number of runs:
+By default, `@MutFlowTest` runs all discovered mutations - no configuration needed. For large codebases where running all mutations is too slow, you can limit the number of runs:
 
 ```kotlin
 @MutFlowTest(maxRuns = 20)  // Baseline + up to 19 mutation runs
@@ -182,7 +209,7 @@ class CalculatorTest { ... }
 When an integration test exercises multiple `@MutationTarget` classes but you only want to test mutations in specific ones:
 
 ```kotlin
-// Only test mutations from Calculator — ignore other @MutationTarget classes reached by underTest
+// Only test mutations from Calculator - ignore other @MutationTarget classes reached by underTest
 @MutFlowTest(includeTargets = [Calculator::class])
 class CalculatorIntegrationTest { ... }
 
@@ -191,8 +218,8 @@ class CalculatorIntegrationTest { ... }
 class PaymentServiceTest { ... }
 ```
 
-- `includeTargets`: Whitelist — only these classes produce active mutations
-- `excludeTargets`: Blacklist — these classes are skipped
+- `includeTargets`: Whitelist - only these classes produce active mutations
+- `excludeTargets`: Blacklist - these classes are skipped
 - Both can be combined: include narrows first, exclude removes from that set
 - Empty (default) = no filtering, all discovered mutations are candidates
 
@@ -242,18 +269,54 @@ Traps run in the order provided, regardless of selection strategy. After all tra
 [mutflow]     (Calculator.kt:8) > → >=
 ```
 
+### Verification Mode
+
+By default, mutflow uses **strict** verification: surviving mutations fail the build. You can change this behavior per test class or globally.
+
+```kotlin
+@MutFlowTest(verificationMode = VerificationMode.STRICT)   // default — survivors fail the build
+@MutFlowTest(verificationMode = VerificationMode.LENIENT)  // survivors are reported but don't fail
+@MutFlowTest(verificationMode = VerificationMode.DISABLED) // mutation runs are skipped entirely
+```
+
+**When to use each mode:**
+- `STRICT` — Default. Use for CI pipelines where mutation coverage must be maintained.
+- `LENIENT` — Use when building up test coverage incrementally. Mutations still run and are reported in the summary, but survivors don't break the build. This lets you focus on writing regular tests first and address surviving mutations later.
+- `DISABLED` — Use when you only want fast feedback from regular tests. Only the baseline runs — no mutations are tested at all.
+
+**Environment variable override:**
+
+The `MUTFLOW_VERIFICATION_MODE` environment variable overrides the annotation value for all test classes. This enables phased CI pipelines:
+
+```bash
+# Phase 1: Fast feedback — only regular tests
+MUTFLOW_VERIFICATION_MODE=DISABLED ./gradlew test
+
+# Phase 2: Full mutation testing
+./gradlew test
+```
+
+Or for a gradual adoption workflow:
+
+```bash
+# Run mutation tests but don't block the build yet
+MUTFLOW_VERIFICATION_MODE=LENIENT ./gradlew test
+```
+
+The environment variable accepts `STRICT`, `LENIENT`, or `DISABLED` (case-insensitive). Invalid values produce a warning and fall back to the annotation value.
+
 ### Suppressing Mutations
 
-mutflow provides three levels of suppression granularity:
+Suppression works regardless of how the class was targeted (annotation or Gradle config). mutflow provides three levels of suppression granularity:
 
-**Class level** — skip all mutations in a class:
+**Class level** - skip all mutations in a class:
 ```kotlin
 @MutationTarget
 @SuppressMutations
 class LegacyCalculator { ... }
 ```
 
-**Function level** — skip mutations in a specific function:
+**Function level** - skip mutations in a specific function:
 ```kotlin
 @MutationTarget
 class Calculator {
@@ -262,7 +325,7 @@ class Calculator {
 }
 ```
 
-**Line level** — skip mutations on a single line using comments:
+**Line level** - skip mutations on a single line using comments:
 ```kotlin
 @MutationTarget
 class Calculator {
@@ -275,13 +338,13 @@ class Calculator {
 }
 ```
 
-Two comment keywords are supported — same technical effect, different intent:
-- `mutflow:ignore` — the code is not worth testing (logging, debug utilities, heuristics)
-- `mutflow:falsePositive` — the mutation is an equivalent mutant or not meaningful to test
+Two comment keywords are supported - same technical effect, different intent:
+- `mutflow:ignore` - the code is not worth testing (logging, debug utilities, heuristics)
+- `mutflow:falsePositive` - the mutation is an equivalent mutant or not meaningful to test
 
 Free-form text after the keyword documents the reason for reviewers.
 
-**Inline comment** suppresses mutations on the same line. **Standalone comment** (on its own line) suppresses mutations on the next line. Comments have zero production overhead — they are stripped by the compiler and nothing appears in the production bytecode.
+**Inline comment** suppresses mutations on the same line. **Standalone comment** (on its own line) suppresses mutations on the next line. Comments have zero production overhead - they are stripped by the compiler and nothing appears in the production bytecode.
 
 ### Selection and Shuffle Parameters
 
@@ -299,50 +362,51 @@ MutFlow.underTest(run = 1, Selection.MostLikelyStable, Shuffle.PerChange) {
 }
 ```
 
-Selection strategies (`PureRandom`, `MostLikelyRandom`, `MostLikelyStable`) and shuffle modes (`PerRun`, `PerChange`) control how mutations are prioritized. The `@MutFlowTest` annotation uses sensible defaults automatically — these parameters are only needed for custom integrations.
+Selection strategies (`PureRandom`, `MostLikelyRandom`, `MostLikelyStable`) and shuffle modes (`PerRun`, `PerChange`) control how mutations are prioritized. The `@MutFlowTest` annotation uses sensible defaults automatically - these parameters are only needed for custom integrations.
 
 ## Mutation Operators
 
-- [**Relational comparisons**](#how-relational-comparison-mutations-work) — `>`, `<`, `>=`, `<=` with 2 variants each (boundary + flip)
-- [**Constant boundary**](#how-constant-boundary-mutations-work) — Numeric constants in comparisons mutated by +1/-1 (e.g., `0 → 1`, `0 → -1`)
-- [**Arithmetic**](#how-arithmetic-mutations-work) — `+` ↔ `-`, `*` ↔ `/`, `%` → `/` (with safe division to avoid div-by-zero)
-- [**Equality swaps**](#how-equality-swap-mutations-work) — `==` ↔ `!=` (1 variant each)
-- [**Boolean logic swaps**](#how-boolean-logic-mutations-work) — `&&` ↔ `||` (1 variant each)
-- [**Boolean inversion**](#how-boolean-inversion-mutations-work) — `expr` → `!expr` for boolean function calls, property accesses, and variables/parameters (1 variant each)
-- [**Boolean return**](#how-boolean-return-mutations-work) — Boolean return values replaced with `true`/`false` (explicit returns only)
-- [**Nullable return**](#how-nullable-return-mutations-work) — Nullable return values replaced with `null` (explicit returns only)
-- [**Void function body**](#how-void-function-body-mutations-work) — Unit function bodies replaced with empty bodies, detecting untested side effects
-- **Recursive operator nesting** — Multiple mutation types combine on the same expression
-- **Type-agnostic** — Works with `Int`, `Long`, `Double`, `Float`, `Short`, `Byte`, `Char`
+- [**Relational comparisons**](#how-relational-comparison-mutations-work) - `>`, `<`, `>=`, `<=` with 2 variants each (boundary + flip)
+- [**Constant boundary**](#how-constant-boundary-mutations-work) - Numeric constants in comparisons mutated by +1/-1 (e.g., `0 → 1`, `0 → -1`)
+- [**Arithmetic**](#how-arithmetic-mutations-work) - `+` ↔ `-`, `*` ↔ `/`, `%` → `/` (with safe division to avoid div-by-zero)
+- [**Equality swaps**](#how-equality-swap-mutations-work) - `==` ↔ `!=` (1 variant each)
+- [**Boolean logic swaps**](#how-boolean-logic-mutations-work) - `&&` ↔ `||` (1 variant each)
+- [**Boolean inversion**](#how-boolean-inversion-mutations-work) - `expr` → `!expr` for boolean function calls, property accesses, and variables/parameters (1 variant each)
+- [**Boolean return**](#how-boolean-return-mutations-work) - Boolean return values replaced with `true`/`false` (explicit returns only)
+- [**Nullable return**](#how-nullable-return-mutations-work) - Nullable return values replaced with `null` (explicit returns only)
+- [**Void function body**](#how-void-function-body-mutations-work) - Unit function bodies replaced with empty bodies, detecting untested side effects
+- **Recursive operator nesting** - Multiple mutation types combine on the same expression
+- **Type-agnostic** - Works with `Int`, `Long`, `Double`, `Float`, `Short`, `Byte`, `Char`
 
 ## Features
 
 **Core**
-- **JUnit 6 integration** — `@MutFlowTest` annotation for automatic multi-run orchestration
-- **K2 compiler plugin** — Transforms `@MutationTarget` classes with multiple mutation types
-- **Parameterless API** — Simple `MutFlow.underTest { }` when using JUnit extension
-- **Runs all mutations by default** — Zero-config: `@MutFlowTest` tests every discovered mutation
+- **JUnit 6 integration** - `@MutFlowTest` annotation for automatic multi-run orchestration
+- **K2 compiler plugin** - Transforms `@MutationTarget` classes (or Gradle-configured target patterns) with multiple mutation types
+- **Parameterless API** - Simple `MutFlow.underTest { }` when using JUnit extension
+- **Runs all mutations by default** - Zero-config: `@MutFlowTest` tests every discovered mutation
 
 **Reporting**
-- **Summary reporting** — Visual summary at end of test class showing killed/survived mutations
-- **Readable mutation names** — Source location and operator descriptions (e.g., `(Calculator.kt:7) > → >=`, `(Calculator.kt:7) 0 → 1`). When the same operator appears multiple times on one line, an occurrence suffix disambiguates (e.g., `> → >= #2`)
-- **IDE-clickable links** — Source locations in IntelliJ-compatible format for quick navigation
-- **Mutation result tracking** — Killed mutations show as PASSED (exception swallowed), survivors fail the build
+- **Summary reporting** - Visual summary at end of test class showing killed/survived mutations
+- **Readable mutation names** - Source location and operator descriptions (e.g., `(Calculator.kt:7) > → >=`, `(Calculator.kt:7) 0 → 1`). When the same operator appears multiple times on one line, an occurrence suffix disambiguates (e.g., `> → >= #2`)
+- **IDE-clickable links** - Source locations in IntelliJ-compatible format for quick navigation
+- **Mutation result tracking** - Killed mutations show as PASSED (exception swallowed), survivors fail the build
 
 **Control**
-- **`@SuppressMutations`** — Skip mutations on specific classes or functions
-- **Comment-based line suppression** — `// mutflow:ignore` and `// mutflow:falsePositive` to skip individual lines (zero production overhead)
-- **Target filtering** — `includeTargets`/`excludeTargets` to scope mutations by class in integration tests
-- **Trap mechanism** — Pin specific mutations to run first while debugging test gaps
+- **Verification mode** - `STRICT` (default, survivors fail), `LENIENT` (survivors reported only), `DISABLED` (skip mutations). Configurable per annotation or globally via `MUTFLOW_VERIFICATION_MODE` env var
+- **`@SuppressMutations`** - Skip mutations on specific classes or functions
+- **Comment-based line suppression** - `// mutflow:ignore` and `// mutflow:falsePositive` to skip individual lines (zero production overhead)
+- **Target filtering** - `includeTargets`/`excludeTargets` to scope mutations by class in integration tests
+- **Trap mechanism** - Pin specific mutations to run first while debugging test gaps
 
 **Robustness**
-- **Timeout detection** — Mutations that cause infinite loops (e.g., flipping `<` in a loop condition) are automatically detected and reported. Compiler-injected `checkTimeout()` at the top of every loop body ensures even tight loops are caught. Test fails with actionable guidance to add `// mutflow:ignore`
-- **Partial run detection** — Automatically skips mutation testing when running single tests from IDE (prevents false positives)
-- **Parallel test safe** — Mutation test classes can run alongside other tests in parallel; `underTest {}` blocks serialize automatically via a synchronized lock, without using `ThreadLocal` (keeping the door open for coroutine/reactive support)
-- **Session-based architecture** — Clean lifecycle, no leaked global state
+- **Timeout detection** - Mutations that cause infinite loops (e.g., flipping `<` in a loop condition) are automatically detected and reported. Compiler-injected `checkTimeout()` at the top of every loop body ensures even tight loops are caught. Test fails with actionable guidance to add `// mutflow:ignore`
+- **Partial run detection** - Automatically skips mutation testing when running single tests from IDE (prevents false positives)
+- **Parallel test safe** - Mutation test classes can run alongside other tests in parallel; `underTest {}` blocks serialize automatically via a synchronized lock, without using `ThreadLocal` (keeping the door open for coroutine/reactive support)
+- **Session-based architecture** - Clean lifecycle, no leaked global state
 
 **Extensibility**
-- **Extensible architecture** — `MutationOperator` (for calls), `ReturnMutationOperator` (for returns), `WhenMutationOperator` (for boolean logic), and `FunctionBodyMutationOperator` (for function bodies) interfaces for adding new mutation types
+- **Extensible architecture** - `MutationOperator` (for calls), `ReturnMutationOperator` (for returns), `WhenMutationOperator` (for boolean logic), and `FunctionBodyMutationOperator` (for function bodies) interfaces for adding new mutation types
 
 ## How Mutations Work
 
@@ -357,7 +421,7 @@ Relational comparison mutations verify that your tests exercise boundary conditi
 | `> → >=` | `x >= 0` | `isPositive(0)` should be false |
 | `> → <` | `x < 0` | `isPositive(1)` should be true |
 
-Each relational operator produces 2 variants — a boundary mutation (include/exclude equality) and a direction flip:
+Each relational operator produces 2 variants - a boundary mutation (include/exclude equality) and a direction flip:
 
 | Original | Boundary variant | Flip variant |
 |----------|-----------------|--------------|
@@ -366,7 +430,7 @@ Each relational operator produces 2 variants — a boundary mutation (include/ex
 | `<` | `<=` | `>` |
 | `<=` | `<` | `>=` |
 
-If your tests only use values far from the boundary (e.g., `isPositive(5)` and `isPositive(-5)`), the boundary variant may survive — revealing the gap.
+If your tests only use values far from the boundary (e.g., `isPositive(5)` and `isPositive(-5)`), the boundary variant may survive - revealing the gap.
 
 ### How Constant Boundary Mutations Work
 
@@ -381,7 +445,7 @@ The constant boundary mutation detects poorly tested boundaries that operator mu
 | `0 → 1` | `x > 1` | `isPositive(1)` should be true |
 | `0 → -1` | `x > -1` | `isPositive(0)` should be false |
 
-If your tests only use values far from the boundary (e.g., `isPositive(5)` and `isPositive(-5)`), the constant mutations will survive — revealing the gap in boundary testing.
+If your tests only use values far from the boundary (e.g., `isPositive(5)` and `isPositive(-5)`), the constant mutations will survive - revealing the gap in boundary testing.
 
 ### How Arithmetic Mutations Work
 
@@ -439,11 +503,11 @@ And for `fun isOutOfRange(x: Int) = x < 0 || x > 100`:
 |----------|--------------|----------------|
 | `\|\| → &&` | `x < 0 && x > 100` | `isOutOfRange(-5)` should be true |
 
-These mutations catch tests that only exercise the "happy path" where both conditions agree. If `&&` and `||` would produce the same result for all your test inputs, the mutation survives — revealing that your tests don't cover the case where the two conditions disagree.
+These mutations catch tests that only exercise the "happy path" where both conditions agree. If `&&` and `||` would produce the same result for all your test inputs, the mutation survives - revealing that your tests don't cover the case where the two conditions disagree.
 
 ### How Boolean Inversion Mutations Work
 
-Boolean inversion mutations verify that your tests detect when a boolean value is flipped. Every boolean expression — function calls, property accesses, and variable/parameter reads — is mutated by wrapping it in `!`.
+Boolean inversion mutations verify that your tests detect when a boolean value is flipped. Every boolean expression - function calls, property accesses, and variable/parameter reads - is mutated by wrapping it in `!`.
 
 **Function calls and property accesses (`expr()` → `!expr()`):**
 
@@ -470,7 +534,7 @@ fun inheritedSelection(invertSelection: Boolean, parentSelected: Boolean): Boole
 | `invertSelection → !invertSelection` | `if (!invertSelection)` | Test with `invertSelection=true` should invert |
 | `parentSelected → !parentSelected` | `!(!parentSelected)` / `!parentSelected` | Test should verify both branches |
 
-**Negation removal is implicit:** There is no separate "remove `!`" mutation. Adding `!` to the inner expression of `!expr` produces `!(!expr)`, which evaluates to `expr` — achieving the same effect. This simplification covers all boolean types uniformly without special-casing negation.
+**Negation removal is implicit:** There is no separate "remove `!`" mutation. Adding `!` to the inner expression of `!expr` produces `!(!expr)`, which evaluates to `expr` - achieving the same effect. This simplification covers all boolean types uniformly without special-casing negation.
 
 These mutations catch tests that don't verify the polarity of boolean results. If your test calls a function but doesn't assert the actual boolean value, the inversion mutation will survive.
 
@@ -572,7 +636,7 @@ See [DESIGN.md](DESIGN.md) for architecture details, design decisions, and imple
 
 ### Code coverage (JaCoCo/Kover) reports 0% when mutflow is enabled
 
-mutflow compiles your sources twice — once normally (`main`) and once with mutations injected (`mutatedMain`). During tests, the mutated classes are loaded instead of the original ones. Since coverage tools instrument the `main` classes, they see no execution.
+mutflow compiles your sources twice - once normally (`main`) and once with mutations injected (`mutatedMain`). During tests, the mutated classes are loaded instead of the original ones. Since coverage tools instrument the `main` classes, they see no execution.
 
 **Solution:** Run coverage and mutation testing as separate steps:
 

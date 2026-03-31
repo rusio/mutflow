@@ -92,12 +92,12 @@ class Calculator {
     // --- Comment-based line suppression tests ---
 
     /**
-     * Inline mutflow:ignore comment — the comparison on this line should NOT be mutated.
+     * Inline mutflow:ignore comment - the comparison on this line should NOT be mutated.
      */
     fun isLargeIgnored(x: Int): Boolean = x > 100 // mutflow:ignore this is just a heuristic threshold
 
     /**
-     * Standalone mutflow:falsePositive comment — the comparison on the next line should NOT be mutated.
+     * Standalone mutflow:falsePositive comment - the comparison on the next line should NOT be mutated.
      */
     fun isSmallFalsePositive(x: Int): Boolean {
         // mutflow:falsePositive equivalent mutant, boundary doesn't matter here

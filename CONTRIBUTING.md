@@ -10,7 +10,7 @@ Bug fixes and documentation improvements are of course always welcome as direct 
 
 ## About the Mutation Set
 
-Mutflow is an opinionated project. One of its core goals is to find a pragmatic balance between thoroughness and usefulness — not every theoretically valid mutation belongs in the default set.
+Mutflow is an opinionated project. One of its core goals is to find a pragmatic balance between thoroughness and usefulness - not every theoretically valid mutation belongs in the default set.
 
 This means we may decline suggestions for new mutation operators even if they provide some value or are standard in other mutation testing tools. That's not a reflection on the quality of the suggestion; it's about keeping the tool focused and the results actionable.
 
@@ -25,4 +25,4 @@ If you're unsure whether a mutation operator would be a good fit, a discussion i
 
 ## Thank You
 
-We genuinely value contributions and feedback. These guidelines exist to make the process smoother for everyone involved — not to discourage participation. If you have questions, don't hesitate to open an issue.
+We genuinely value contributions and feedback. These guidelines exist to make the process smoother for everyone involved - not to discourage participation. If you have questions, don't hesitate to open an issue.

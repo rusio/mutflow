@@ -37,7 +37,8 @@ class MutflowIrTransformer(
     private val callOperators: List<MutationOperator> = defaultCallOperators(),
     private val returnOperators: List<ReturnMutationOperator> = defaultReturnOperators(),
     private val functionBodyOperators: List<FunctionBodyMutationOperator> = defaultFunctionBodyOperators(),
-    private val whenOperators: List<WhenMutationOperator> = defaultWhenOperators()
+    private val whenOperators: List<WhenMutationOperator> = defaultWhenOperators(),
+    private val targetPatterns: List<String> = emptyList()
 ) : IrElementTransformerVoid() {
 
     companion object {
@@ -77,6 +78,21 @@ class MutflowIrTransformer(
         fun defaultWhenOperators(): List<WhenMutationOperator> = listOf(
             BooleanLogicOperator()
         )
+
+        /**
+         * Compiles glob-style target patterns into regexes for FQN matching.
+         * - `.` matches literal dots
+         * - `*` matches a single name segment (does not cross dots)
+         * - `**` matches any number of segments (crosses dots)
+         */
+        fun compileTargetPatterns(patterns: List<String>): List<Regex> = patterns.map { pattern ->
+            val regex = pattern
+                .replace(".", "\\.")       // literal dots
+                .replace("**", "\u0000")   // temp placeholder for **
+                .replace("*", "[^.]*")     // * matches single package segment
+                .replace("\u0000", ".*")   // ** matches any depth
+            Regex("^$regex$")
+        }
     }
 
     private val mutationTargetFqName = FqName("io.github.anschnapp.mutflow.MutationTarget")
@@ -118,6 +134,9 @@ class MutflowIrTransformer(
     private var suppressedLines: Set<Int> = emptySet()
     private val suppressedLinesCache = mutableMapOf<String, Set<Int>>()
 
+    // Compiled target patterns from Gradle config (glob-style → regex)
+    private val compiledTargetPatterns: List<Regex> = compileTargetPatterns(targetPatterns)
+
     override fun visitFile(declaration: IrFile): IrFile {
         debug("visitFile: ${declaration.fileEntry.name}")
         val previousFile = currentFile
@@ -137,9 +156,10 @@ class MutflowIrTransformer(
         val previousClass = currentClass
 
         isInMutationTarget = declaration.hasAnnotation(mutationTargetFqName)
+                || matchesTargetPattern(declaration)
         currentClass = declaration
 
-        debug("  hasAnnotation($mutationTargetFqName): $isInMutationTarget")
+        debug("  isInMutationTarget: $isInMutationTarget")
 
         // Check for @SuppressMutations on the class
         if (isInMutationTarget && declaration.hasAnnotation(suppressMutationsFqName)) {
@@ -697,7 +717,7 @@ class MutflowIrTransformer(
      * ```
      * fun save(entity: Entity) {
      *     when {
-     *         MutationRegistry.check(...) == 0 -> { }  // empty — skip body
+     *         MutationRegistry.check(...) == 0 -> { }  // empty - skip body
      *         else -> { original statements }
      *     }
      * }
@@ -790,6 +810,17 @@ class MutflowIrTransformer(
         return "$fileName:$lineNumber"
     }
 
+    /**
+     * Checks if a class FQN matches any of the configured target patterns from the Gradle config.
+     * Supports glob-style patterns: exact match, single-segment wildcard (*), and
+     * multi-segment wildcard (**).
+     */
+    private fun matchesTargetPattern(declaration: IrClass): Boolean {
+        if (compiledTargetPatterns.isEmpty()) return false
+        val fqName = declaration.fqNameWhenAvailable?.asString() ?: return false
+        return compiledTargetPatterns.any { it.matches(fqName) }
+    }
+
     private fun generatePointId(): String {
         val className = currentClass?.fqNameWhenAvailable?.asString() ?: "unknown"
         return "${className}_${mutationPointCounter++}"
@@ -845,7 +876,7 @@ class MutflowIrTransformer(
             java.io.File(filePath).readLines()
         } catch (e: Exception) {
             System.err.println(
-                "[mutflow] WARNING: Could not read source file $filePath — " +
+                "[mutflow] WARNING: Could not read source file $filePath - " +
                     "comment-based suppression (mutflow:ignore / mutflow:falsePositive) " +
                     "unavailable for this file"
             )

@@ -7,7 +7,7 @@ import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
  *
  * Unlike [MutationOperator] (which targets individual call expressions) and
  * [ReturnMutationOperator] (which targets return statements), this interface
- * operates at the function level — wrapping the entire body in a mutation guard.
+ * operates at the function level - wrapping the entire body in a mutation guard.
  *
  * The transformer handles the body wrapping directly. Implementations only need
  * to specify which functions to match and provide descriptions for display.
