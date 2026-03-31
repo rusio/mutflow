@@ -11,13 +11,13 @@ import org.jetbrains.kotlin.ir.util.deepCopyWithSymbols
  *
  * IR representation:
  * - `==` is a single `EQEQ` intrinsic call with origin `EQEQ`
- * - `!=` is `not(EQEQ(a, b))` — two calls, both with origin `EXCLEQ`:
+ * - `!=` is `not(EQEQ(a, b))` - two calls, both with origin `EXCLEQ`:
  *     - inner: EQEQ intrinsic (symbol name "EQEQ", origin EXCLEQ)
  *     - outer: Boolean.not() (symbol name "not", origin EXCLEQ)
  *
  * Mutation approach:
  * - `== → !=`: wrap the EQEQ call with `Boolean.not()`
- * - `!= → ==`: unwrap — return the dispatch receiver (the inner EQEQ call)
+ * - `!= → ==`: unwrap - return the dispatch receiver (the inner EQEQ call)
  *
  * Important: We match the outer `not()` call for `!=`, NOT the inner EQEQ.
  * Matching the inner EQEQ would create a duplicate/spurious mutation point.

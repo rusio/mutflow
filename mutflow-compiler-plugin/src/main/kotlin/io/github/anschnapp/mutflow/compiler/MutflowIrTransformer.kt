@@ -717,7 +717,7 @@ class MutflowIrTransformer(
      * ```
      * fun save(entity: Entity) {
      *     when {
-     *         MutationRegistry.check(...) == 0 -> { }  // empty — skip body
+     *         MutationRegistry.check(...) == 0 -> { }  // empty - skip body
      *         else -> { original statements }
      *     }
      * }
@@ -876,7 +876,7 @@ class MutflowIrTransformer(
             java.io.File(filePath).readLines()
         } catch (e: Exception) {
             System.err.println(
-                "[mutflow] WARNING: Could not read source file $filePath — " +
+                "[mutflow] WARNING: Could not read source file $filePath - " +
                     "comment-based suppression (mutflow:ignore / mutflow:falsePositive) " +
                     "unavailable for this file"
             )

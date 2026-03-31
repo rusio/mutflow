@@ -57,7 +57,7 @@ class MutFlowSession internal constructor(
     private var testFailedInCurrentRun: Boolean = false
 
     // Tracks whether any test failed during baseline (run 0)
-    // If true, mutation runs are skipped — no point testing mutations when the implementation itself is broken
+    // If true, mutation runs are skipped - no point testing mutations when the implementation itself is broken
     private var baselineHadFailures: Boolean = false
 
     // Results of mutation testing: mutation -> result

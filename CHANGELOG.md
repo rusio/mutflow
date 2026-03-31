@@ -2,14 +2,14 @@
 
 ## [0.9.0] - 2026-03-17
 ### Fixed
-- Mutation runs are now skipped when baseline tests fail — previously, failing tests were incorrectly counted as "mutation killed", making all mutations appear green
+- Mutation runs are now skipped when baseline tests fail - previously, failing tests were incorrectly counted as "mutation killed", making all mutations appear green
 
 ## [0.8.0] - 2026-03-03
 ### Changed
-- Boolean inversion operator simplified — always adds `!` instead of two cases (remove/add). The "remove negation" case is implicit: `!(!expr)` = `expr`
+- Boolean inversion operator simplified - always adds `!` instead of two cases (remove/add). The "remove negation" case is implicit: `!(!expr)` = `expr`
 - Boolean inversion now matches property accesses in addition to plain function calls
 ### Added
-- Boolean variable/parameter inversion — boolean variables and parameters are now mutated (`varName → !varName`)
+- Boolean variable/parameter inversion - boolean variables and parameters are now mutated (`varName → !varName`)
 
 ## [0.7.0] - 2026-03-02
 ### Added
@@ -20,7 +20,7 @@
 ## [0.6.0] - 2026-02-27
 ### Changed
 - All mutation points are now tested by default (`maxRuns` defaults to all instead of 5)
-- Removed `selection` and `shuffle` parameters from `@MutFlowTest` — simpler API, less configuration needed
+- Removed `selection` and `shuffle` parameters from `@MutFlowTest` - simpler API, less configuration needed
 
 ## [0.5.0] - 2026-02-13
 ### Added

@@ -9,7 +9,7 @@ import org.jetbrains.kotlin.ir.util.isPropertyAccessor
  * Mutation operator that removes the body of Unit/void functions.
  *
  * Replaces the entire function body with an empty body (no-op), removing all
- * side effects. This catches tests that don't verify side effects — the mental
+ * side effects. This catches tests that don't verify side effects - the mental
  * model of "what if this function did nothing?"
  *
  * Example:

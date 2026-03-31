@@ -437,7 +437,7 @@ class AllOperatorsTest {
 
     @Test
     fun `boolean negation removal generates mutation`() {
-        // negateBool uses !value — the `value` IrGetValue gets a value → !value mutation,
+        // negateBool uses !value - the `value` IrGetValue gets a value → !value mutation,
         // which turns !value into !(!value) = value (implicit negation removal)
 
         MutFlow.underTest(run = 0, selection = Selection.MostLikelyStable, shuffle = Shuffle.PerChange) {
@@ -451,7 +451,7 @@ class AllOperatorsTest {
 
     @Test
     fun `boolean negation removal changes behavior correctly`() {
-        // Original: !value — negateBool(true) returns false
+        // Original: !value - negateBool(true) returns false
         // Mutation on `value` (value → !value): !(!true) = true
 
         // Baseline
@@ -469,7 +469,7 @@ class AllOperatorsTest {
 
     @Test
     fun `boolean addition generates mutation`() {
-        // checkIdentity uses identityBool(value) — a boolean-returning call
+        // checkIdentity uses identityBool(value) - a boolean-returning call
         // BooleanInversionOperator wraps it in !identityBool(value)
 
         MutFlow.underTest(run = 0, selection = Selection.MostLikelyStable, shuffle = Shuffle.PerChange) {
@@ -483,7 +483,7 @@ class AllOperatorsTest {
 
     @Test
     fun `boolean addition changes behavior correctly`() {
-        // Original: identityBool(value) — checkIdentity(true) returns true
+        // Original: identityBool(value) - checkIdentity(true) returns true
         // Mutation: !identityBool(true) returns false
 
         // Baseline
@@ -503,7 +503,7 @@ class AllOperatorsTest {
 
     @Test
     fun `boolean variable inversion generates mutation`() {
-        // passThroughBool(flag) returns flag directly — an IrGetValue leaf node
+        // passThroughBool(flag) returns flag directly - an IrGetValue leaf node
         // visitGetValue creates a flag → !flag mutation point
 
         MutFlow.underTest(run = 0, selection = Selection.MostLikelyStable, shuffle = Shuffle.PerChange) {
@@ -517,8 +517,8 @@ class AllOperatorsTest {
 
     @Test
     fun `boolean variable inversion changes behavior correctly`() {
-        // Original: return flag — passThroughBool(true) returns true
-        // Mutation: return !flag — passThroughBool(true) returns false
+        // Original: return flag - passThroughBool(true) returns true
+        // Mutation: return !flag - passThroughBool(true) returns false
 
         // Baseline
         val baseline = MutFlow.underTest(run = 0, selection = Selection.MostLikelyStable, shuffle = Shuffle.PerChange) {
